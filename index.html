@@ -364,7 +364,7 @@ input[type="checkbox"] {
         <div id="aiThoughtContext" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:7px"></div>
       </div>
       <div class="notice" style="margin-top:12px">
-        AI replies aren't connected yet. Your messages and conversation history are saved only in this browser. To enable AI responses, connect a secure backend or API endpoint.
+        AI replies are connected to a Cloudflare Worker endpoint. Set <code>window.CLEAR_MIND_AI_URL</code> to your deployed Worker URL before sending a message, for example: <code>https://clear-mind-openai-worker.&lt;account-subdomain&gt;.workers.dev/api/explore</code>
       </div>
       <div id="aiTranscript" class="chat-transcript" aria-live="polite"></div>
       <form onsubmit="sendAIMessage(event)">
@@ -464,6 +464,7 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+const aiEndpoint = (typeof window !== "undefined" && window.CLEAR_MIND_AI_URL) ? String(window.CLEAR_MIND_AI_URL).trim() : "";
 
 function loadData(key, fallback = []) {
   try {
@@ -571,23 +572,70 @@ function renderAIConversation() {
     : '<div class="empty">Start wherever you are. Your messages will stay with this thought.</div>';
 }
 
-function sendAIMessage(event) {
+function getAIEndpoint() {
+  const current = (typeof window !== "undefined" && window.CLEAR_MIND_AI_URL) ? String(window.CLEAR_MIND_AI_URL).trim() : "";
+  return current || aiEndpoint;
+}
+
+async function sendAIMessage(event) {
   event.preventDefault();
   const text = $("aiMessage").value.trim();
   if (!text || state.activeThoughtId === null) return;
 
-  state.aiMessages.push({ role: "user", text });
+  const thought = state.thoughts.find((item) => item.id === state.activeThoughtId);
+  const endpoint = getAIEndpoint();
 
+  if (!thought || !endpoint) {
+    alert("AI is not connected yet. Set window.CLEAR_MIND_AI_URL to your deployed Cloudflare Worker URL before sending a message.");
+    return;
+  }
+
+  const userMessage = { role: "user", text };
+  const nextMessages = [...state.aiMessages, userMessage];
+  state.aiMessages = nextMessages;
   try {
     localStorage.setItem(conversationKey(state.activeThoughtId), JSON.stringify(state.aiMessages));
   } catch (error) {
-    state.aiMessages.pop();
-    alert("Your browser could not save this conversation. Check your browser storage settings.");
-    return;
+    // ignore persistence failure; keep the UI responsive and surface the error for the user
   }
 
   $("aiMessage").value = "";
   renderAIConversation();
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
+      body: JSON.stringify({
+        thoughtText: thought.text,
+        messages: nextMessages.map((message) => ({ role: message.role, text: message.text }))
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("AI request failed");
+    }
+
+    const payload = await response.json();
+    const reply = typeof payload?.reply === "string" ? payload.reply.trim() : "";
+    if (!reply) {
+      throw new Error("Empty AI response");
+    }
+
+    state.aiMessages.push({ role: "assistant", text: reply });
+    localStorage.setItem(conversationKey(state.activeThoughtId), JSON.stringify(state.aiMessages));
+    renderAIConversation();
+  } catch (error) {
+    state.aiMessages.push({
+      role: "assistant",
+      text: "I couldn’t reach the AI helper right now. Check the worker URL and try again."
+    });
+    localStorage.setItem(conversationKey(state.activeThoughtId), JSON.stringify(state.aiMessages));
+    renderAIConversation();
+  }
 }
 
 function resetTaskForm() {
