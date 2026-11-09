@@ -441,8 +441,7 @@ code {
 
   <section class="hero">
     <p class="greeting" id="greeting"></p>
-    <h2>You can take this one step at a time.</h2>
-    <p>A little progress is enough for today.</p>
+    <h2 id="encouragement"></h2>
     <div class="hero-actions">
       <button class="primary" type="button" data-action="go-view" data-view="dump">
         <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -619,6 +618,46 @@ const STORAGE = {
   plans: "cm_plans_v2"
 };
 
+const ENCOURAGEMENT_STORAGE_KEY = "cm_last_encouragement";
+const encouragementMessages = [
+  "You can take this one step at a time.",
+  "A little progress is enough for today.",
+  "You do not have to figure everything out right now.",
+  "It is okay to begin wherever you are.",
+  "You are allowed to make room for a slower day.",
+  "One small thing can be plenty for this moment.",
+  "You can pause and come back when you are ready.",
+  "There is no need to have it all sorted today.",
+  "You deserve the same patience you offer others.",
+  "Starting small still counts as starting.",
+  "You can let today be what it is, without judging it.",
+  "A quiet moment for yourself matters, too.",
+  "You are doing what you can with the day you have.",
+  "You can take a breath before deciding what comes next.",
+  "It is okay if your next step is simply to rest.",
+  "You do not need to earn a moment of ease.",
+  "Some days, showing up gently is enough.",
+  "You can leave a few things for another day.",
+  "There is no single right pace for getting through today.",
+  "You are more than what you managed to finish.",
+  "You can meet this moment without solving the whole week.",
+  "A little care for yourself is a worthwhile place to start.",
+  "You are allowed to change your mind about what matters today.",
+  "Even when things feel tangled, you can take one gentle step.",
+  "You do not have to rush to make this day count.",
+  "It is enough to do the next kind thing for yourself.",
+  "You can give yourself permission to begin again.",
+  "Not everything needs your attention at once.",
+  "You can make space for what you need, one moment at a time.",
+  "Your effort does not have to look a certain way to matter.",
+  "A softer approach is still a way forward.",
+  "You can take today in smaller pieces.",
+  "It is okay to have mixed feelings and keep going gently.",
+  "You are allowed to take a break without having it all done.",
+  "Whatever today holds, you can meet it one moment at a time.",
+  "You can be a work in progress and still deserve care."
+];
+
 const state = {
   tasks: [],
   thoughts: [],
@@ -630,6 +669,35 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 const aiEndpoint = (typeof window !== "undefined" && window.CLEAR_MIND_AI_URL) ? String(window.CLEAR_MIND_AI_URL).trim() : "";
+let lastEncouragementIndex = null;
+
+function showEncouragement() {
+  let previousIndex = lastEncouragementIndex;
+  try {
+    const savedValue = sessionStorage.getItem(ENCOURAGEMENT_STORAGE_KEY);
+    if (savedValue !== null) {
+      const savedIndex = Number(savedValue);
+      if (Number.isInteger(savedIndex) && savedIndex >= 0 && savedIndex < encouragementMessages.length) {
+        previousIndex = savedIndex;
+      }
+    }
+  } catch (error) {
+    // Keep the current page usable when session storage is unavailable.
+  }
+
+  let nextIndex = Math.floor(Math.random() * encouragementMessages.length);
+  if (encouragementMessages.length > 1 && nextIndex === previousIndex) {
+    nextIndex = (nextIndex + 1 + Math.floor(Math.random() * (encouragementMessages.length - 1))) % encouragementMessages.length;
+  }
+
+  $("encouragement").textContent = encouragementMessages[nextIndex];
+  lastEncouragementIndex = nextIndex;
+  try {
+    sessionStorage.setItem(ENCOURAGEMENT_STORAGE_KEY, String(nextIndex));
+  } catch (error) {
+    // The in-memory value still prevents an immediate repeat on this page.
+  }
+}
 
 function loadData(key, fallback = []) {
   try {
@@ -681,6 +749,8 @@ function escapeHTML(value) {
 function switchView(id) {
   const validViews = ["home", "dump", "tasks", "planner", "aiConversation"];
   if (!validViews.includes(id)) return;
+
+  if (id === "home") showEncouragement();
 
   document.querySelectorAll(".view").forEach((section) => {
     section.classList.remove("active");
