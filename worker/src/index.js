@@ -137,7 +137,11 @@ export default {
       return response(400, { error: "Request body must be valid JSON." }, corsHeaders);
     }
 
-    aiResult?.result?.choices?.[0]?.message?.content,
+    const validated = validatePayload(payload, env);
+    if (validated.error) return response(400, { error: validated.error }, corsHeaders);
+    if (!env.AI || typeof env.AI.run !== "function") {
+      return response(503, { error: "AI service is not configured." }, corsHeaders);
+    }
 
     if (!env.RATE_LIMITER || typeof env.RATE_LIMITER.limit !== "function") {
       return response(503, { error: "Rate limiter is not configured." }, corsHeaders);
@@ -168,7 +172,7 @@ export default {
       return response(502, { error: "Could not reach the AI service. Please retry." }, corsHeaders);
     }
 
-        const reply = [
+    const reply = [
       aiResult?.response,
       aiResult?.choices?.[0]?.message?.content,
       aiResult?.result?.response,
