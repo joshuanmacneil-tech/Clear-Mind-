@@ -168,10 +168,11 @@ export default {
       return response(502, { error: "Could not reach the AI service. Please retry." }, corsHeaders);
     }
 
-    const reply = [
+        const reply = [
       aiResult?.response,
       aiResult?.choices?.[0]?.message?.content,
       aiResult?.result?.response,
+      aiResult?.result?.choices?.[0]?.message?.content,
     ].find(value => typeof value === "string" && value.trim());
     if (typeof reply !== "string") {
       return response(502, { error: "The AI service returned no reply. Please retry." }, corsHeaders);
