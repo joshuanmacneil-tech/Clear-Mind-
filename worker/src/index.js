@@ -137,11 +137,7 @@ export default {
       return response(400, { error: "Request body must be valid JSON." }, corsHeaders);
     }
 
-    const validated = validatePayload(payload, env);
-    if (validated.error) return response(400, { error: validated.error }, corsHeaders);
-    if (!env.AI || typeof env.AI.run !== "function") {
-      return response(503, { error: "AI service is not configured." }, corsHeaders);
-    }
+    aiResult?.result?.choices?.[0]?.message?.content,
 
     if (!env.RATE_LIMITER || typeof env.RATE_LIMITER.limit !== "function") {
       return response(503, { error: "Rate limiter is not configured." }, corsHeaders);
