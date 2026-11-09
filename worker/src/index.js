@@ -175,7 +175,18 @@ export default {
     }
 
     if (!openAiResponse.ok) {
-      // Do not return provider response bodies that might disclose internal details.
+      let upstreamError;
+      try {
+        upstreamError = (await openAiResponse.json())?.error;
+      } catch {
+        // Keep status and request ID diagnostics even if the body is not valid JSON.
+      }
+      console.error("OpenAI request failed", {
+        status: openAiResponse.status,
+        requestId: openAiResponse.headers.get("x-request-id"),
+        errorType: typeof upstreamError?.type === "string" ? upstreamError.type : undefined,
+        errorCode: typeof upstreamError?.code === "string" ? upstreamError.code : undefined,
+      });
       return response(502, { error: "The AI service could not complete this request. Please retry." }, corsHeaders);
     }
 
