@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "wrangler dev --local",
     "deploy": "wrangler deploy",
-    "login": "wrangler login"
+    "test": "node --test"
   },
   "devDependencies": {
-    "wrangler": "^3.109.1"
+    "wrangler": "^4.0.0"
   }
 }

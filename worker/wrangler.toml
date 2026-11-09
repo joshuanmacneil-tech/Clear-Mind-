@@ -1,15 +1,22 @@
 name = "clear-mind-openai-worker"
 main = "src/index.js"
-compatibility_date = "2024-11-01"
+compatibility_date = "2025-01-01"
 
+# Public configuration only. OPENAI_API_KEY must be configured as a Worker secret.
 [vars]
 OPENAI_MODEL = "gpt-4o-mini"
 ALLOWED_ORIGINS = "https://joshuanmacneil-tech.github.io"
-RATE_LIMIT_MAX_REQUESTS = "10"
-RATE_LIMIT_WINDOW_SECONDS = "60"
+MAX_REQUEST_BYTES = "65536"
 MAX_HISTORY_MESSAGES = "10"
 MAX_MESSAGE_CHARS = "3000"
 MAX_THOUGHT_CHARS = "8000"
+
+# Workers native rate limiting binding. The counter is best-effort/local to a Cloudflare location,
+# not a strict global quota. Change limit/period here to tune the free-tier abuse safeguard.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
 
 [observability.logs]
 enabled = true

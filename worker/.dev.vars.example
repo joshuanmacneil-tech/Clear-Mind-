@@ -1,0 +1,9 @@
+# Local-only development values. Copy this file to .dev.vars (ignored by Git).
+# Never put real credentials in this example or commit your local .dev.vars.
+OPENAI_API_KEY=replace-locally-with-your-OpenAI-key
+OPENAI_MODEL=gpt-4o-mini
+ALLOWED_ORIGINS=http://localhost:8788,https://joshuanmacneil-tech.github.io
+MAX_REQUEST_BYTES=65536
+MAX_HISTORY_MESSAGES=10
+MAX_MESSAGE_CHARS=3000
+MAX_THOUGHT_CHARS=8000
