@@ -364,7 +364,7 @@ input[type="checkbox"] {
         <div id="aiThoughtContext" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:7px"></div>
       </div>
       <div class="notice" style="margin-top:12px">
-        AI replies are connected to a Cloudflare Worker endpoint. Set <code>window.CLEAR_MIND_AI_URL</code> to your deployed Worker URL before sending a message, for example: <code>https://clear-mind-openai-worker.&lt;account-subdomain&gt;.workers.dev/api/explore</code>
+        AI replies are connected to a Cloudflare Worker endpoint. Set <code>window.CLEAR_MIND_AI_URL</code> to your deployed Worker URL before sending a message, for example: <code>https://clear-mind-[...]
       </div>
       <div id="aiTranscript" class="chat-transcript" aria-live="polite"></div>
       <form onsubmit="sendAIMessage(event)">
@@ -617,7 +617,9 @@ async function sendAIMessage(event) {
     });
 
     if (!response.ok) {
-      throw new Error("AI request failed");
+      const payload = await response.json().catch(() => null);
+      const workerError = typeof payload?.error === "string" ? payload.error.trim() : "";
+      throw new Error(workerError || `AI request failed with status ${response.status}`);
     }
 
     const payload = await response.json();
@@ -632,7 +634,7 @@ async function sendAIMessage(event) {
   } catch (error) {
     state.aiMessages.push({
       role: "assistant",
-      text: "I couldn’t reach the AI helper right now. Check the worker URL and try again."
+      text: error.message
     });
     localStorage.setItem(conversationKey(state.activeThoughtId), JSON.stringify(state.aiMessages));
     renderAIConversation();
