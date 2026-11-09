@@ -612,8 +612,7 @@ async function sendAIMessage(event) {
       },
       body: JSON.stringify({
         thoughtText: thought.text,
-        messages: nextMessages.map((message) => ({ role: message.role, text: message.text }))
-      })
+        messages: nextMessages.slice(-10).map((message) => ({ role: message.role, text: message.text }))
     });
 
     if (!response.ok) {
