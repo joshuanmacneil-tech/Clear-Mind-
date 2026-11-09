@@ -101,11 +101,6 @@ small, .muted, label { color: var(--muted); }
   margin-bottom: 20px;
   box-shadow: var(--shadow);
 }
-.hero > small, .pick > small {
-  color: var(--accent-dark);
-  font-weight: 700;
-  letter-spacing: .08em;
-}
 .hero h2 {
   font-size: clamp(1.8rem, 3vw, 2.4rem);
   line-height: 1.15;
@@ -118,6 +113,14 @@ small, .muted, label { color: var(--muted); }
   color: var(--muted);
   max-width: 48ch;
   margin-bottom: 18px;
+}
+.hero .greeting {
+  margin: 0;
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 .hero-actions {
   display: flex;
@@ -137,15 +140,63 @@ small, .muted, label { color: var(--muted); }
   padding: 18px;
   box-shadow: var(--shadow);
 }
+.stat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.stat-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+.stat-icon svg, .button-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
 .stat b {
   display: block;
   font-size: 26px;
   letter-spacing: -.04em;
-  margin: 5px 0 1px;
+  line-height: 1.15;
+  margin: 4px 0 0;
 }
 .stat span {
   font-size: 12px;
   color: var(--muted);
+}
+.stat-label { line-height: 1.3; }
+#home .pick, #home .panel {
+  border-radius: 20px;
+}
+#home .pick {
+  padding: clamp(20px, 4vw, 26px);
+}
+#home .pick > small {
+  color: var(--accent-dark);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+#home .pick h3 { margin: 8px 0; }
+#home .pick p { margin-bottom: 15px; }
+#home .panel h3 {
+  margin-bottom: 12px;
+  color: var(--text);
+}
+.button-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 5px;
+  vertical-align: -3px;
 }
 nav {
   position: fixed;
@@ -334,13 +385,20 @@ code {
 @media (max-width: 500px) {
   .app { padding: 20px 14px calc(112px + env(safe-area-inset-bottom)); }
   .hero { border-radius: 22px; }
-  .hero h2 { font-size: 26px; }
+  .hero h2 { font-size: clamp(25px, 7vw, 30px); }
+  .hero-actions { display: grid; grid-template-columns: 1fr; }
+  .hero-actions button { min-height: 46px; }
   .stats { gap: 8px; }
-  .stat { padding: 12px 10px; border-radius: 16px; }
-  .stat b { font-size: 21px; }
-  .stat span { font-size: 11px; }
+  .stat { padding: 12px 10px; border-radius: 16px; gap: 4px; }
+  .stat-icon { width: 30px; height: 30px; border-radius: 10px; }
+  .stat b { font-size: clamp(19px, 6vw, 22px); }
+  .stat span { font-size: 10px; }
   .row { grid-template-columns: 1fr; }
-  header { align-items: flex-start; }
+  header { align-items: center; gap: 8px; }
+  .logo { gap: 8px; }
+  h1 { font-size: 21px; }
+  header > .date { max-width: 112px; text-align: right; line-height: 1.3; }
+  #home .pick, #home .panel { padding: 18px; }
   nav { justify-content: space-between; gap: 4px; padding-right: 10px; padding-left: 10px; }
   nav button {
     flex: 1 1 0;
@@ -382,19 +440,45 @@ code {
   </header>
 
   <section class="hero">
-    <small>YOUR SPACE TO RESET</small>
-    <h2>You don't have to do it all.<br>Just start somewhere.</h2>
-    <p>Get it out of your head. Find one small next step. Give yourself credit.</p>
+    <p class="greeting" id="greeting"></p>
+    <h2>You can take this one step at a time.</h2>
+    <p>A little progress is enough for today.</p>
     <div class="hero-actions">
-      <button class="primary" type="button" data-action="go-view" data-view="dump">＋ Brain dump</button>
-      <button class="secondary" type="button" onclick="pickTask()">✦ Pick one for me</button>
+      <button class="primary" type="button" data-action="go-view" data-view="dump">
+        <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3a8 8 0 0 0-4.7 14.5c.6.4 1 .9 1.1 1.5h7.2c.1-.6.5-1.1 1.1-1.5A8 8 0 0 0 12 3Z"/>
+          <path d="M9 22h6m-5.5-3h5"/>
+        </svg>
+        Start with a brain dump
+      </button>
     </div>
   </section>
 
   <section class="stats">
-    <div class="stat">🌀<b id="openCount">0</b><span>Still to do</span></div>
-    <div class="stat">🌱<b id="doneCount">0</b><span>Completed</span></div>
-    <div class="stat">✨<b id="percent">0%</b><span>Progress</span></div>
+    <div class="stat">
+      <span class="stat-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>
+        </svg>
+      </span>
+      <b id="openCount">0</b><span class="stat-label">Still to do</span>
+    </div>
+    <div class="stat">
+      <span class="stat-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="8.5"/><path d="m8.5 12 2.2 2.2 4.8-5"/>
+        </svg>
+      </span>
+      <b id="doneCount">0</b><span class="stat-label">Completed</span>
+    </div>
+    <div class="stat">
+      <span class="stat-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19V5m0 14h16"/><path d="m7 15 4-4 3 2 5-6"/>
+        </svg>
+      </span>
+      <b id="percent">0%</b><span class="stat-label">Progress</span>
+    </div>
   </section>
 
   <nav aria-label="Main navigation">
@@ -406,17 +490,17 @@ code {
 
   <section id="home" class="view active">
     <div class="pick" id="pickBox">
-      <small>✦ NEED A STARTING POINT?</small>
-      <h3>Let's find one small thing.</h3>
-      <p>Let Clear Mind choose one unfinished task for you.</p>
+      <small>YOUR NEXT STEP</small>
+      <h3>One thing at a time.</h3>
+      <p>Choose a small task to focus on next.</p>
       <button class="primary" type="button" onclick="pickTask()">Pick a task</button>
     </div>
     <div class="panel">
-      <h3>Coming up 🌈</h3>
+      <h3>Coming up</h3>
       <div id="homeTasks"></div>
     </div>
     <div class="panel">
-      <h3>Quick wins ⚡</h3>
+      <h3>Quick wins</h3>
       <div id="quickTasks"></div>
     </div>
   </section>
@@ -921,8 +1005,8 @@ function renderTasks() {
 function renderHome() {
   const open = state.tasks.filter((task) => !task.done);
 
-  $("homeTasks").innerHTML = open.slice(0, 4).map(taskHTML).join("") || '<div class="empty">🫧 Nothing chasing you right now.</div>';
-  $("quickTasks").innerHTML = open.filter((task) => task.kind === "quick").slice(0, 4).map(taskHTML).join("") || '<div class="empty">⚡ Add a small job as a quick win.</div>';
+  $("homeTasks").innerHTML = open.slice(0, 4).map(taskHTML).join("") || '<div class="empty">Nothing chasing you right now.</div>';
+  $("quickTasks").innerHTML = open.filter((task) => task.kind === "quick").slice(0, 4).map(taskHTML).join("") || '<div class="empty">Add a small job as a quick win.</div>';
 }
 
 function renderThoughts() {
@@ -1020,11 +1104,15 @@ function initialize() {
   state.thoughts = loadData(STORAGE.thoughts, []);
   state.plans = loadData(STORAGE.plans, []);
 
-  $("date").textContent = new Date().toLocaleDateString(undefined, {
+  const now = new Date();
+  const hour = now.getHours();
+  $("greeting").textContent = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const formattedDate = now.toLocaleDateString(undefined, {
     weekday: "short",
     month: "short",
     day: "numeric"
   });
+  $("date").textContent = formattedDate;
 
   $("taskSort").addEventListener("change", renderTasks);
   $("taskFilter").addEventListener("change", renderTasks);
