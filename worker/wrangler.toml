@@ -1,0 +1,15 @@
+name = "clear-mind-openai-worker"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+OPENAI_MODEL = "gpt-4o-mini"
+ALLOWED_ORIGINS = "https://joshuanmacneil-tech.github.io"
+RATE_LIMIT_MAX_REQUESTS = "10"
+RATE_LIMIT_WINDOW_SECONDS = "60"
+MAX_HISTORY_MESSAGES = "10"
+MAX_MESSAGE_CHARS = "3000"
+MAX_THOUGHT_CHARS = "8000"
+
+[observability.logs]
+enabled = true
