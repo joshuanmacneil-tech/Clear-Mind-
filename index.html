@@ -1,0 +1,345 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clear Mind</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(145deg,#21153e,#172c49,#172e39);color:white;font-family:system-ui,sans-serif;min-height:100vh}
+.app{max-width:850px;margin:auto;padding:20px 15px 50px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo span{font-size:30px}
+h1{font-size:23px;margin:0}
+small,.muted{color:#c2b9d8}
+.date{font-size:12px;color:#ddd}
+.hero{padding:25px;border-radius:25px;background:linear-gradient(120deg,#8151bd,#db568e,#f49b69);margin-bottom:17px;box-shadow:0 12px 35px #0004}
+.hero h2{font-size:30px;line-height:1.15;margin:9px 0}
+.hero p{font-size:14px;line-height:1.5}
+button{border:0;border-radius:13px;padding:12px 15px;font-weight:750;cursor:pointer;font-size:14px}
+.primary{background:white;color:#54356f}
+.secondary{background:#ffffff20;color:white;border:1px solid #ffffff50}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:18px}
+.stat,.panel{background:#ffffff12;border:1px solid #ffffff20;border-radius:19px;padding:15px}
+.stat b{display:block;font-size:25px;margin:7px 0}
+.stat span{font-size:12px;color:#d0c9e5}
+nav{display:flex;gap:7px;overflow-x:auto;margin-bottom:16px;padding-bottom:5px}
+nav button{background:#ffffff15;color:#d9d2ee;white-space:nowrap}
+nav button.active{background:white;color:#38234f}
+.view{display:none}
+.view.active{display:block}
+h3{margin-top:0}
+.panel{margin-bottom:13px}
+input,textarea,select{width:100%;padding:13px;border-radius:12px;border:1px solid #ffffff30;background:#191a37;color:white;font:inherit;margin:6px 0 12px}
+textarea{min-height:105px;resize:vertical}
+label{font-size:12px;color:#c9c1df}
+.task{display:flex;gap:10px;align-items:flex-start;padding:12px;background:#ffffff0b;border:1px solid #ffffff15;border-radius:14px;margin:9px 0}
+.task input{width:20px;margin:2px 0;accent-color:#71e3c2}
+.task-content{flex:1;overflow-wrap:anywhere}
+.task.done .task-content{text-decoration:line-through;color:#aaa}
+.meta{font-size:11px;color:#c2b9d8;margin-top:5px}
+.delete{background:#ffffff12;color:white;padding:7px 10px}
+.tag{display:inline-block;padding:4px 8px;border-radius:20px;background:#ffffff18;margin-right:5px}
+.quick{color:#9df0d6}
+.pick{background:linear-gradient(120deg,#155d62,#315f88);border:1px solid #80e9d5;border-radius:20px;padding:19px;margin-bottom:14px}
+.pick h3{font-size:21px}
+.empty{text-align:center;color:#c3bbd9;padding:20px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.plan{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #ffffff20;align-items:center}
+.plan strong{color:#ffb86d;min-width:65px}
+@media(max-width:500px){.hero h2{font-size:26px}.stats{gap:6px}.stat{padding:11px}.stat b{font-size:21px}.stat span{font-size:10px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+ <div class="logo"><span>✨</span><div><h1>Clear Mind</h1><small>A little less noise.</small></div></div>
+ <div class="date" id="date"></div>
+</header>
+
+<section class="hero">
+ <small>YOUR SPACE TO RESET</small>
+ <h2>You don't have to do it all.<br>Just start somewhere.</h2>
+ <p>Get it out of your head. Find one small next step. Give yourself credit.</p>
+ <button class="primary" onclick="switchView('dump')">＋ Brain dump</button>
+ <button class="secondary" onclick="pickTask()">✦ Pick one for me</button>
+</section>
+
+<section class="stats">
+ <div class="stat">🌀<b id="openCount">0</b><span>Still to do</span></div>
+ <div class="stat">🌱<b id="doneCount">0</b><span>Completed</span></div>
+ <div class="stat">✨<b id="percent">0%</b><span>Progress</span></div>
+</section>
+
+<nav>
+ <button type="button" class="active" data-view="home" onclick="switchView('home')">🏡 Home</button>
+ <button type="button" data-view="dump" onclick="switchView('dump')">🧠 Brain dump</button>
+ <button type="button" data-view="tasks" onclick="switchView('tasks')">📝 My list</button>
+ <button type="button" data-view="planner" onclick="switchView('planner')">🗓️ Day planner</button>
+</nav>
+
+<section id="home" class="view active">
+ <div class="pick" id="pickBox">
+  <small>✦ NEED A STARTING POINT?</small>
+  <h3>Let's find one small thing.</h3>
+  <p>Let Clear Mind choose one unfinished task for you.</p>
+  <button class="primary" onclick="pickTask()">Pick a task</button>
+ </div>
+ <div class="panel"><h3>Coming up 🌈</h3><div id="homeTasks"></div></div>
+ <div class="panel"><h3>Quick wins ⚡</h3><div id="quickTasks"></div></div>
+</section>
+
+<section id="dump" class="view">
+ <div class="panel">
+  <h3>Empty your head 🧠</h3>
+  <p class="muted">Messy thoughts welcome. No organizing required.</p>
+  <textarea id="thought" placeholder="I need to remember... I keep thinking about..."></textarea>
+  <button class="primary" onclick="addThought()">Save thought</button>
+ </div>
+ <div class="panel"><h3>Your thoughts</h3><div id="thoughtList"></div></div>
+</section>
+
+<section id="tasks" class="view">
+ <div class="panel">
+  <h3>Add something to your list</h3>
+  <input id="taskName" placeholder="What needs doing?">
+  <div class="row">
+   <div><label>Area</label><select id="category"><option>Personal</option><option>Home</option><option>Work</option><option>Family</option><option>Other</option></select></div>
+   <div><label>Task type</label><select id="kind"><option value="regular">Regular</option><option value="quick">Quick win ⚡</option></select></div>
+  </div>
+  <label>Due date (optional)</label>
+  <input type="date" id="due">
+  <button class="primary" onclick="addTask()">＋ Add task</button>
+ </div>
+ <div class="panel"><h3>Everything on your list</h3><div id="taskList"></div></div>
+</section>
+
+<section id="planner" class="view">
+ <div class="panel">
+  <h3>Make a little room in your day ☀️</h3>
+  <p class="muted">A gentle guide, not a strict schedule.</p>
+  <label>Time</label><input type="time" id="planTime">
+  <label>What's the plan?</label><input id="planName" placeholder="Take a break, go shopping...">
+  <button class="primary" onclick="addPlan()">Add to my day</button>
+ </div>
+ <div class="panel"><h3>Today's flow</h3><div id="planList"></div></div>
+</section>
+</div>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+
+let tasks = loadData("cm_tasks");
+let thoughts = loadData("cm_thoughts");
+let plans = loadData("cm_plans");
+
+function loadData(key){
+ try{
+  const value = JSON.parse(localStorage.getItem(key) || "[]");
+  return Array.isArray(value) ? value : [];
+ }catch(error){
+  return [];
+ }
+}
+
+function save(){
+ try{
+  localStorage.setItem("cm_tasks",JSON.stringify(tasks));
+  localStorage.setItem("cm_thoughts",JSON.stringify(thoughts));
+  localStorage.setItem("cm_plans",JSON.stringify(plans));
+ }catch(error){
+  alert("Your browser could not save the changes. Check your browser storage settings.");
+ }
+ render();
+}
+
+function escapeHTML(value){
+ return String(value).replace(/[&<>"']/g,c=>({
+  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+ }[c]));
+}
+
+/* Reliable navigation: explicitly hide every screen, then show the selected one. */
+function switchView(id){
+ const validViews = ["home","dump","tasks","planner"];
+ if(!validViews.includes(id)) return;
+
+ document.querySelectorAll(".view").forEach(section=>{
+  section.classList.remove("active");
+  section.style.display = "none";
+ });
+
+ const selected = document.getElementById(id);
+ selected.style.display = "block";
+ selected.classList.add("active");
+
+ document.querySelectorAll("nav button[data-view]").forEach(button=>{
+  button.classList.toggle("active",button.dataset.view === id);
+ });
+
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function addTask(title){
+ title = title || $("taskName").value.trim();
+ if(!title) return;
+
+ tasks.unshift({
+  id:Date.now(),
+  title:title,
+  category:$("category").value,
+  kind:$("kind").value,
+  due:$("due").value,
+  done:false
+ });
+
+ $("taskName").value = "";
+ $("due").value = "";
+ save();
+}
+
+function toggleTask(id){
+ const task = tasks.find(t=>t.id===id);
+ if(task) task.done = !task.done;
+ save();
+}
+
+function deleteTask(id){
+ tasks = tasks.filter(t=>t.id!==id);
+ save();
+}
+
+function addThought(){
+ const text = $("thought").value.trim();
+ if(!text) return;
+
+ thoughts.unshift({id:Date.now(),text:text});
+ $("thought").value = "";
+ save();
+}
+
+function deleteThought(id){
+ thoughts = thoughts.filter(t=>t.id!==id);
+ save();
+}
+
+function convertThought(id){
+ const thought = thoughts.find(t=>t.id===id);
+ if(!thought) return;
+
+ tasks.unshift({
+  id:Date.now(),
+  title:thought.text,
+  category:"Personal",
+  kind:"regular",
+  due:"",
+  done:false
+ });
+
+ thoughts = thoughts.filter(t=>t.id!==id);
+ save();
+ switchView("tasks");
+}
+
+function addPlan(){
+ const time = $("planTime").value;
+ const name = $("planName").value.trim();
+ if(!time || !name) return;
+
+ plans.push({id:Date.now(),time:time,text:name});
+ $("planName").value = "";
+ save();
+}
+
+function deletePlan(id){
+ plans = plans.filter(p=>p.id!==id);
+ save();
+}
+
+function taskHTML(task){
+ return `<div class="task ${task.done?"done":""}">
+ <input type="checkbox" ${task.done?"checked":""} onchange="toggleTask(${task.id})" aria-label="Mark task complete">
+ <div class="task-content">
+ <strong>${escapeHTML(task.title)}</strong>
+ <div class="meta"><span class="tag">${escapeHTML(task.category)}</span>
+ ${task.kind==="quick"?'<span class="quick">⚡ Quick win</span>':""}
+ ${task.due?" · 📅 "+escapeHTML(task.due):""}</div>
+ </div>
+ <button type="button" class="delete" onclick="deleteTask(${task.id})" aria-label="Delete task">✕</button>
+ </div>`;
+}
+
+function pickTask(){
+ const open = tasks.filter(t=>!t.done);
+ const box = $("pickBox");
+
+ if(!open.length){
+  box.innerHTML = '<h3>Nothing waiting on your list! 🎉</h3><p>Enjoy the breathing room.</p>';
+  return;
+ }
+
+ const quick = open.filter(t=>t.kind==="quick");
+ const pool = quick.length ? quick : open;
+ const task = pool[Math.floor(Math.random()*pool.length)];
+
+ box.innerHTML = `
+ <small>✦ ONE THING TO TRY</small>
+ <h3>${escapeHTML(task.title)}</h3>
+ <p>${escapeHTML(task.category)}${task.kind==="quick"?" · Quick win":""}</p>
+ <button class="primary" onclick="toggleTask(${task.id})">Mark it done ✓</button>
+ <button class="secondary" onclick="pickTask()">Pick another</button>`;
+}
+
+function render(){
+ const open = tasks.filter(t=>!t.done);
+ const done = tasks.filter(t=>t.done);
+
+ $("openCount").textContent = open.length;
+ $("doneCount").textContent = done.length;
+ $("percent").textContent = (tasks.length ? Math.round(done.length/tasks.length*100) : 0)+"%";
+
+ $("taskList").innerHTML = tasks.map(taskHTML).join("") ||
+ '<div class="empty">🌈 Your list is empty. Add something whenever you are ready.</div>';
+
+ $("homeTasks").innerHTML = open.slice(0,4).map(taskHTML).join("") ||
+ '<div class="empty">🫧 Nothing chasing you right now.</div>';
+
+ $("quickTasks").innerHTML = open.filter(t=>t.kind==="quick").slice(0,4).map(taskHTML).join("") ||
+ '<div class="empty">⚡ Add a small job as a quick win.</div>';
+
+ $("thoughtList").innerHTML = thoughts.map(t=>`
+ <div class="task">
+  <div class="task-content">${escapeHTML(t.text)}
+   <div class="meta">🧠 Brain dump</div>
+   <p>
+    <button type="button" class="secondary" onclick="convertThought(${t.id})">Turn into task</button>
+    <button type="button" class="delete" onclick="deleteThought(${t.id})">Delete</button>
+   </p>
+  </div>
+ </div>`).join("") ||
+ '<div class="empty">☁️ Nothing here yet. That is okay.</div>';
+
+ $("planList").innerHTML = [...plans]
+  .sort((a,b)=>a.time.localeCompare(b.time))
+  .map(p=>`
+   <div class="plan">
+    <strong>${escapeHTML(p.time)}</strong>
+    <span style="flex:1">${escapeHTML(p.text)}</span>
+    <button type="button" class="delete" onclick="deletePlan(${p.id})">✕</button>
+   </div>`).join("") ||
+ '<div class="empty">🌤️ Your day is wide open.</div>';
+}
+
+$("date").textContent = new Date().toLocaleDateString(undefined,{
+ weekday:"short",month:"short",day:"numeric"
+});
+
+render();
+switchView("home");
+</script>
+</body>
+</html>
