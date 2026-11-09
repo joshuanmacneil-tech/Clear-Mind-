@@ -137,6 +137,13 @@ describe("Clear Mind Worker with Cloudflare Workers AI", () => {
     assert.deepEqual(await result.json(), { reply: "Fallback from result." });
   });
 
+  it("uses the nested result.choices[0].message.content response fallback", async () => {
+    const env = makeEnv({ result: { choices: [{ message: { content: "Nested response works." } }] } });
+    const result = await worker.fetch(makeRequest({ thoughtText: "hi", messages: [] }), env);
+    assert.equal(result.status, 200);
+    assert.deepEqual(await result.json(), { reply: "Nested response works." });
+  });
+
   it("returns 503 when the AI binding is missing", async () => {
     const env = { ...baseEnv, AI: undefined };
     const result = await worker.fetch(makeRequest({ thoughtText: "hi", messages: [] }), env);
