@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -49,6 +48,12 @@ label{font-size:12px;color:#c9c1df}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .plan{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #ffffff20;align-items:center}
 .plan strong{color:#ffb86d;min-width:65px}
+.thought-actions{display:flex;gap:8px;flex-wrap:wrap}
+.chat-transcript{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.chat-message{padding:12px 14px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere;background:#ffffff12;border:1px solid #ffffff20}
+.chat-message.user{align-self:flex-end;background:#ffffff20;max-width:90%}
+.chat-message.assistant{align-self:flex-start;max-width:95%}
+.notice{padding:12px 14px;border-radius:13px;background:#ffffff0d;border:1px solid #ffffff25;color:#d7d0e8;font-size:13px;line-height:1.5}
 @media(max-width:500px){.hero h2{font-size:26px}.stats{gap:6px}.stat{padding:11px}.stat b{font-size:21px}.stat span{font-size:10px}}
 </style>
 </head>
@@ -101,6 +106,22 @@ label{font-size:12px;color:#c9c1df}
  <div class="panel"><h3>Your thoughts</h3><div id="thoughtList"></div></div>
 </section>
 
+<section id="aiConversation" class="view">
+ <div class="panel">
+  <button type="button" class="secondary" onclick="switchView('dump')">← Back to Brain dump</button>
+  <h3 style="margin-top:16px">Explore this thought ✨</h3>
+  <p class="muted">Your original thought is shown as context and won't be changed.</p>
+  <div class="notice"><strong>Thought context</strong><div id="aiThoughtContext" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:7px"></div></div>
+  <div class="notice" style="margin-top:12px">AI replies aren't connected yet. Your messages and conversation history are saved only in this browser. To enable AI responses, connect a secure backend/API; don't put a secret API key in this HTML file.</div>
+  <div id="aiTranscript" class="chat-transcript" aria-live="polite"></div>
+  <form onsubmit="sendAIMessage(event)">
+   <label for="aiMessage">What would you like to explore?</label>
+   <textarea id="aiMessage" placeholder="Ask a follow-up, sort through ideas, or look for a next step..."></textarea>
+   <button class="primary" type="submit">Send message</button>
+  </form>
+ </div>
+</section>
+
 <section id="tasks" class="view">
  <div class="panel">
   <h3>Add something to your list</h3>
@@ -136,6 +157,8 @@ const $ = id => document.getElementById(id);
 let tasks = loadData("cm_tasks");
 let thoughts = loadData("cm_thoughts");
 let plans = loadData("cm_plans");
+let activeThoughtId = null;
+let aiMessages = [];
 
 function loadData(key){
  try{
@@ -165,7 +188,7 @@ function escapeHTML(value){
 
 /* Reliable navigation: explicitly hide every screen, then show the selected one. */
 function switchView(id){
- const validViews = ["home","dump","tasks","planner"];
+ const validViews = ["home","dump","tasks","planner","aiConversation"];
  if(!validViews.includes(id)) return;
 
  document.querySelectorAll(".view").forEach(section=>{
@@ -178,10 +201,53 @@ function switchView(id){
  selected.classList.add("active");
 
  document.querySelectorAll("nav button[data-view]").forEach(button=>{
-  button.classList.toggle("active",button.dataset.view === id);
+  button.classList.toggle("active",button.dataset.view === id || (id === "aiConversation" && button.dataset.view === "dump"));
  });
 
  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function conversationKey(thoughtId){
+ return "cm_ai_conversation_" + String(thoughtId);
+}
+
+function openAI(thoughtId){
+ const thought = thoughts.find(item=>item.id===thoughtId);
+ if(!thought) return;
+
+ activeThoughtId = thoughtId;
+ $("aiThoughtContext").textContent = thought.text;
+ try{
+  const saved = JSON.parse(localStorage.getItem(conversationKey(thoughtId)) || "[]");
+  aiMessages = Array.isArray(saved) ? saved.filter(message=>message && (message.role === "user" || message.role === "assistant") && typeof message.text === "string") : [];
+ }catch(error){
+  aiMessages = [];
+ }
+ renderAIConversation();
+ switchView("aiConversation");
+}
+
+function renderAIConversation(){
+ $("aiTranscript").innerHTML = aiMessages.map(message=>
+  `<div class="chat-message ${message.role}"><strong>${message.role === "user" ? "You" : "Clear Mind"}</strong><div>${escapeHTML(message.text)}</div></div>`
+ ).join("") || '<div class="empty">Start wherever you are. Your messages will stay with this thought.</div>';
+}
+
+function sendAIMessage(event){
+ event.preventDefault();
+ const text = $("aiMessage").value.trim();
+ if(!text || activeThoughtId === null) return;
+
+ aiMessages.push({role:"user",text:text});
+ try{
+  localStorage.setItem(conversationKey(activeThoughtId),JSON.stringify(aiMessages));
+ }catch(error){
+  aiMessages.pop();
+  alert("Your browser could not save this conversation. Check your browser storage settings.");
+  return;
+ }
+ $("aiMessage").value = "";
+ renderAIConversation();
 }
 
 function addTask(title){
@@ -315,7 +381,8 @@ function render(){
  <div class="task">
   <div class="task-content">${escapeHTML(t.text)}
    <div class="meta">🧠 Brain dump</div>
-   <p>
+   <p class="thought-actions">
+    <button type="button" class="secondary" onclick="openAI(${t.id})">✨ Explore with AI</button>
     <button type="button" class="secondary" onclick="convertThought(${t.id})">Turn into task</button>
     <button type="button" class="delete" onclick="deleteThought(${t.id})">Delete</button>
    </p>
