@@ -2,9 +2,11 @@ name = "clear-mind-openai-worker"
 main = "src/index.js"
 compatibility_date = "2025-01-01"
 
-# Public configuration only. OPENAI_API_KEY must be configured as a Worker secret.
+[ai]
+binding = "AI"
+
 [vars]
-OPENAI_MODEL = "gpt-4o-mini"
+AI_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 ALLOWED_ORIGINS = "https://joshuanmacneil-tech.github.io"
 MAX_REQUEST_BYTES = "65536"
 MAX_HISTORY_MESSAGES = "10"

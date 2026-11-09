@@ -1,4 +1,4 @@
-const DEFAULT_MODEL = "gpt-4o-mini";
+const DEFAULT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 const DEFAULT_MAX_REQUEST_BYTES = 64 * 1024;
 const DEFAULT_MAX_HISTORY_MESSAGES = 10;
 const DEFAULT_MAX_MESSAGE_CHARS = 3000;
@@ -135,7 +135,9 @@ export default {
 
     const validated = validatePayload(payload, env);
     if (validated.error) return response(400, { error: validated.error }, corsHeaders);
-    if (!env.OPENAI_API_KEY) return response(503, { error: "AI service is not configured." }, corsHeaders);
+    if (!env.AI || typeof env.AI.run !== "function") {
+      return response(503, { error: "AI service is not configured." }, corsHeaders);
+    }
 
     if (!env.RATE_LIMITER || typeof env.RATE_LIMITER.limit !== "function") {
       return response(503, { error: "Rate limiter is not configured." }, corsHeaders);
@@ -151,53 +153,27 @@ export default {
       return response(429, { error: "Too many requests. Please wait before trying again." }, corsHeaders);
     }
 
-    const model = env.OPENAI_MODEL || DEFAULT_MODEL;
-    let openAiResponse;
+    const model = env.AI_MODEL || DEFAULT_MODEL;
+    let aiResult;
     try {
-      openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 500,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: `Selected thought (the only Brain Dump context):\n${validated.value.thoughtText}` },
-            ...validated.value.messages,
-          ],
-        }),
+      aiResult = await env.AI.run(model, {
+        max_tokens: 500,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Selected thought (the only Brain Dump context):\n${validated.value.thoughtText}` },
+          ...validated.value.messages,
+        ],
       });
     } catch {
       return response(502, { error: "Could not reach the AI service. Please retry." }, corsHeaders);
     }
 
-    if (!openAiResponse.ok) {
-      let upstreamError;
-      try {
-        upstreamError = (await openAiResponse.json())?.error;
-      } catch {
-        // Keep status and request ID diagnostics even if the body is not valid JSON.
-      }
-      console.error("OpenAI request failed", {
-        status: openAiResponse.status,
-        requestId: openAiResponse.headers.get("x-request-id"),
-        errorType: typeof upstreamError?.type === "string" ? upstreamError.type : undefined,
-        errorCode: typeof upstreamError?.code === "string" ? upstreamError.code : undefined,
-      });
-      return response(502, { error: "The AI service could not complete this request. Please retry." }, corsHeaders);
-    }
-
-    let data;
-    try {
-      data = await openAiResponse.json();
-    } catch {
-      return response(502, { error: "The AI service returned an invalid response. Please retry." }, corsHeaders);
-    }
-    const reply = data?.choices?.[0]?.message?.content;
-    if (typeof reply !== "string" || !reply.trim()) {
+    const reply = [
+      aiResult?.response,
+      aiResult?.choices?.[0]?.message?.content,
+      aiResult?.result?.response,
+    ].find(value => typeof value === "string" && value.trim());
+    if (typeof reply !== "string") {
       return response(502, { error: "The AI service returned no reply. Please retry." }, corsHeaders);
     }
     return response(200, { reply: reply.trim() }, corsHeaders);
