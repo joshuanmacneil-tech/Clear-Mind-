@@ -610,9 +610,10 @@ async function sendAIMessage(event) {
         "Content-Type": "application/json",
         Accept: "application/json"
       },
-      body: JSON.stringify({
+            body: JSON.stringify({
         thoughtText: thought.text,
         messages: nextMessages.slice(-10).map((message) => ({ role: message.role, text: message.text }))
+      })
     });
 
     if (!response.ok) {
