@@ -280,6 +280,84 @@ label {
   flex: 1;
   overflow-wrap: anywhere;
 }
+.task-celebration[hidden] { display: none; }
+.task-celebration {
+  position: fixed;
+  z-index: 20;
+  top: max(16px, env(safe-area-inset-top));
+  left: 50%;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.task-celebration-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow-raised);
+  color: var(--accent-dark);
+  font-weight: 700;
+  animation: celebration-arrive .25s ease-out both;
+}
+.celebration-hands {
+  display: inline-block;
+  font-size: 25px;
+  transform-origin: center;
+  animation: celebration-clap .7s ease-in-out 2;
+}
+.celebration-firework {
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  color: #e6a94f;
+}
+.celebration-firework-left { left: 18%; }
+.celebration-firework-right { right: 18%; color: #78987f; }
+.celebration-firework::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow:
+    0 -17px #e6a94f,
+    12px -12px #d79675,
+    17px 0 #78987f,
+    12px 12px #e6c76e,
+    0 17px #d79675,
+    -12px 12px #78987f,
+    -17px 0 #e6c76e,
+    -12px -12px #d79675;
+  content: "";
+  animation: celebration-burst 1.25s ease-out both;
+}
+.task-celebration.is-active .celebration-firework-right::before {
+  animation-delay: .12s;
+}
+@keyframes celebration-arrive {
+  from { opacity: 0; transform: translateY(-8px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes celebration-clap {
+  0%, 100% { transform: scale(1) rotate(0); }
+  25% { transform: scale(1.16) rotate(-12deg); }
+  50% { transform: scale(1) rotate(0); }
+  75% { transform: scale(1.16) rotate(12deg); }
+}
+@keyframes celebration-burst {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.12) rotate(0); }
+  35% { opacity: 1; }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(1) rotate(45deg); }
+}
 .meta {
   font-size: 11px;
   color: var(--muted);
@@ -423,6 +501,8 @@ code {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
   }
+  .task-celebration-card, .celebration-hands { animation: none !important; }
+  .celebration-firework { display: none; }
 }
 </style>
 </head>
@@ -608,6 +688,15 @@ code {
   </section>
 </div>
 
+<div id="taskCelebration" class="task-celebration" role="status" aria-live="polite" aria-atomic="true" hidden>
+  <div class="task-celebration-card">
+    <span class="celebration-firework celebration-firework-left" aria-hidden="true"></span>
+    <span class="celebration-hands" aria-hidden="true">👏</span>
+    <span id="taskCelebrationMessage">One more thing done!</span>
+    <span class="celebration-firework celebration-firework-right" aria-hidden="true"></span>
+  </div>
+</div>
+
 <script>
 "use strict";
 window.CLEAR_MIND_AI_URL = "https://clear-mind-openai-worker.joshua-n-macneil.workers.dev/api/explore";
@@ -670,6 +759,7 @@ const state = {
 const $ = (id) => document.getElementById(id);
 const aiEndpoint = (typeof window !== "undefined" && window.CLEAR_MIND_AI_URL) ? String(window.CLEAR_MIND_AI_URL).trim() : "";
 let lastEncouragementIndex = null;
+let taskCelebrationTimeout = null;
 
 function showEncouragement() {
   let previousIndex = lastEncouragementIndex;
@@ -929,10 +1019,33 @@ function saveTaskFromForm() {
 function toggleTask(id) {
   const task = state.tasks.find((item) => item.id === id);
   if (task) {
+    const completing = !task.done;
     task.done = !task.done;
+    if (completing) showTaskCelebration();
     saveState();
     render();
   }
+}
+
+function showTaskCelebration() {
+  const celebration = $("taskCelebration");
+  const message = $("taskCelebrationMessage");
+
+  clearTimeout(taskCelebrationTimeout);
+  celebration.classList.remove("is-active");
+  celebration.hidden = true;
+  message.textContent = "";
+  void celebration.offsetWidth;
+  message.textContent = "One more thing done!";
+  celebration.hidden = false;
+  void celebration.offsetWidth;
+  celebration.classList.add("is-active");
+
+  taskCelebrationTimeout = window.setTimeout(() => {
+    celebration.classList.remove("is-active");
+    celebration.hidden = true;
+    taskCelebrationTimeout = null;
+  }, 1800);
 }
 
 function deleteTask(id) {
