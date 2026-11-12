@@ -227,6 +227,9 @@ nav button.active {
 }
 .view { display: none; }
 .view.active { display: block; }
+.app[data-active-view="dump"] > .hero,
+.app[data-active-view="dump"] > .stats,
+.app[data-active-view="planner"] > .stats { display: none; }
 .panel { margin-bottom: 16px; }
 .panel h3, .pick h3 { letter-spacing: -.02em; }
 input, textarea, select {
@@ -439,6 +442,46 @@ label {
   color: var(--accent-dark);
   min-width: 65px;
 }
+.calendar-panel h3 { margin-bottom: 14px; }
+.calendar {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+  table-layout: fixed;
+  text-align: center;
+}
+.calendar caption {
+  padding: 0 0 10px;
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+.calendar th {
+  padding: 8px 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.calendar td {
+  height: 48px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--panel-soft);
+  color: var(--text);
+}
+.calendar td:empty { background: transparent; }
+.calendar time {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  margin: auto;
+  place-items: center;
+  border-radius: 50%;
+}
+.calendar [aria-current="date"] {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -507,7 +550,7 @@ code {
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
   <header>
     <div class="logo">
       <span>✨</span>
@@ -672,6 +715,10 @@ code {
   </section>
 
   <section id="planner" class="view">
+    <div class="panel calendar-panel">
+      <h3>Calendar</h3>
+      <div id="calendar"></div>
+    </div>
     <div class="panel">
       <h3>Make a little room in your day ☀️</h3>
       <p class="muted">A gentle guide, not a strict schedule.</p>
@@ -840,6 +887,7 @@ function switchView(id) {
   const validViews = ["home", "dump", "tasks", "planner", "aiConversation"];
   if (!validViews.includes(id)) return;
 
+  $("app").dataset.activeView = id === "aiConversation" ? "dump" : id;
   if (id === "home") showEncouragement();
 
   document.querySelectorAll(".view").forEach((section) => {
@@ -1222,6 +1270,39 @@ function renderPlans() {
     : '<div class="empty">🌤️ Your day is wide open.</div>';
 }
 
+function renderCalendar() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthLabel = today.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const cells = Array(firstWeekday).fill("");
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const currentDay = day === today.getDate();
+    cells.push(`<td>${currentDay
+      ? `<time datetime="${date}" aria-current="date">${day}</time>`
+      : `<time datetime="${date}">${day}</time>`}</td>`);
+  }
+
+  while (cells.length % 7) cells.push("");
+
+  const weeks = [];
+  for (let index = 0; index < cells.length; index += 7) {
+    weeks.push(`<tr>${cells.slice(index, index + 7).map((cell) => cell || "<td></td>").join("")}</tr>`);
+  }
+
+  $("calendar").innerHTML = `
+    <table class="calendar">
+      <caption>${monthLabel}</caption>
+      <thead><tr>${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `<th scope="col">${day}</th>`).join("")}</tr></thead>
+      <tbody>${weeks.join("")}</tbody>
+    </table>
+  `;
+}
+
 function pickTask() {
   const open = state.tasks.filter((task) => !task.done);
   const box = $("pickBox");
@@ -1300,6 +1381,7 @@ function initialize() {
   $("taskSort").addEventListener("change", renderTasks);
   $("taskFilter").addEventListener("change", renderTasks);
 
+  renderCalendar();
   render();
   switchView("home");
 }
