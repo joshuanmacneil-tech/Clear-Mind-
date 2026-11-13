@@ -460,22 +460,20 @@ label {
 .chat-transcript {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   margin: 14px 0;
 }
 .chat-message {
-  padding: 12px 14px;
-  border-radius: 16px;
+  padding: 9px 13px;
+  border-radius: 15px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: var(--panel-soft);
-  border: 1px solid var(--panel-border);
+  background: #f5f7f3;
   color: var(--text);
 }
 .chat-message.user {
   align-self: flex-end;
-  background: var(--accent-soft);
-  border-color: #dce6da;
+  background: #edf2eb;
   max-width: 90%;
 }
 .chat-response {
@@ -488,12 +486,43 @@ label {
 .chat-mascot {
   position: absolute;
   z-index: 0;
-  top: 5px;
-  left: -3px;
-  width: 54px;
-  height: 54px;
+  width: 46px;
+  height: 46px;
   overflow: visible;
-  animation: mascot-breathe 3.8s ease-in-out infinite;
+}
+.chat-mascot[data-position="top-left"] {
+  top: -19px;
+  left: -3px;
+}
+.chat-mascot[data-position="top-right"] {
+  top: -19px;
+  right: -5px;
+}
+.chat-mascot[data-position="left"] {
+  top: 50%;
+  left: -3px;
+  translate: 0 -50%;
+}
+.chat-mascot[data-position="right"] {
+  top: 50%;
+  right: -5px;
+  translate: 0 -50%;
+}
+.chat-mascot[data-position="bottom-left"] {
+  bottom: -19px;
+  left: -3px;
+}
+.chat-mascot[data-position="bottom-right"] {
+  right: -5px;
+  bottom: -19px;
+}
+.chat-mascot.mascot-entering {
+  animation: mascot-pop .42s cubic-bezier(.2, .8, .25, 1.15) both;
+}
+.mascot-motion {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mascot-breathe 4.2s ease-in-out infinite;
 }
 .mascot-eye {
   transform-box: fill-box;
@@ -505,14 +534,17 @@ label {
   z-index: 1;
   width: 100%;
   max-width: 100%;
-  border-radius: 22px;
-  padding: 14px 17px;
-  background: #f3f6f0;
-  border-color: #e2e9df;
+  border-radius: 16px;
+  padding: 9px 13px;
+  background: #f5f7f3;
 }
 @keyframes mascot-breathe {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-1px) rotate(1deg); }
+}
+@keyframes mascot-pop {
+  from { opacity: 0; transform: translateY(5px) scale(.72); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes mascot-blink {
   0%, 45%, 50%, 100% { transform: scaleY(1); }
@@ -916,6 +948,7 @@ const state = {
   plans: [],
   activeThoughtId: null,
   aiMessages: [],
+  aiNewResponseIndex: null,
   aiPendingThoughtIds: new Set(),
   editingTaskId: null
 };
@@ -1057,6 +1090,7 @@ function openAI(thoughtId, startConversation = false) {
   state.activeThoughtId = thoughtId;
   $("aiThoughtContext").textContent = thought.text;
   state.aiMessages = loadAIConversation(thoughtId);
+  state.aiNewResponseIndex = null;
   if (startConversation && !state.aiMessages.length) {
     state.aiMessages = [{ role: "user", text: thought.text }];
     saveAIConversation(thoughtId, state.aiMessages);
@@ -1072,6 +1106,8 @@ function openAI(thoughtId, startConversation = false) {
 function renderAIConversation() {
   const isPending = state.aiPendingThoughtIds.has(state.activeThoughtId);
   const needsReply = state.aiMessages.length && state.aiMessages[state.aiMessages.length - 1].role === "user";
+  const mascotPositions = ["top-left", "top-right", "left", "right", "bottom-left", "bottom-right"];
+  let assistantResponseIndex = 0;
   const status = isPending
     ? '<div class="notice ai-loading" role="status">Clear Mind is reading what you shared…</div>'
     : needsReply
@@ -1080,29 +1116,36 @@ function renderAIConversation() {
   $("aiMessage").disabled = isPending;
   $("aiSendButton").disabled = isPending;
   $("aiTranscript").innerHTML = state.aiMessages.length
-    ? state.aiMessages.map((message) => {
+    ? state.aiMessages.map((message, messageIndex) => {
         const content = `
           <strong>${message.role === "user" ? "You" : "Clear Mind"}</strong>
           <div>${escapeHTML(message.text)}</div>
         `;
-        return message.role === "assistant"
-          ? `
+        if (message.role === "assistant") {
+          const position = mascotPositions[assistantResponseIndex % mascotPositions.length];
+          const isNewResponse = state.aiNewResponseIndex === messageIndex;
+          assistantResponseIndex += 1;
+          return `
               <div class="chat-response">
-                <svg class="chat-mascot" viewBox="0 0 56 56" aria-hidden="true">
-                  <path d="M25 10c-1-5 1-8 5-9-1 4 0 6 3 8" fill="#78a181" stroke="#54755e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M8 29c0-11 8-19 19-19 11 0 19 8 19 19v10c0 8-7 14-19 14S8 47 8 39V29Z" fill="#a9c5a5" stroke="#54755e" stroke-width="1.5"/>
-                  <circle class="mascot-eye" cx="18" cy="30" r="1.7" fill="#283a30"/>
-                  <circle class="mascot-eye" cx="27" cy="30" r="1.7" fill="#283a30"/>
-                  <path d="M18 37c2 2 5 2 7 0" fill="none" stroke="#54755e" stroke-width="1.6" stroke-linecap="round"/>
-                  <circle cx="13" cy="35" r="2" fill="#d98f82" opacity=".65"/>
-                  <circle cx="32" cy="35" r="2" fill="#d98f82" opacity=".65"/>
+                <svg class="chat-mascot${isNewResponse ? " mascot-entering" : ""}" data-position="${position}" viewBox="0 0 56 56" aria-hidden="true">
+                  <g class="mascot-motion">
+                    <path d="M25 10c-1-5 1-8 5-9-1 4 0 6 3 8" fill="#78a181" stroke="#54755e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M8 29c0-11 8-19 19-19 11 0 19 8 19 19v10c0 8-7 14-19 14S8 47 8 39V29Z" fill="#a9c5a5" stroke="#54755e" stroke-width="1.5"/>
+                    <circle class="mascot-eye" cx="18" cy="30" r="1.7" fill="#283a30"/>
+                    <circle class="mascot-eye" cx="27" cy="30" r="1.7" fill="#283a30"/>
+                    <path d="M18 37c2 2 5 2 7 0" fill="none" stroke="#54755e" stroke-width="1.6" stroke-linecap="round"/>
+                    <circle cx="13" cy="35" r="2" fill="#d98f82" opacity=".65"/>
+                    <circle cx="32" cy="35" r="2" fill="#d98f82" opacity=".65"/>
+                  </g>
                 </svg>
                 <div class="chat-message assistant">${content}</div>
               </div>
-            `
-          : `<div class="chat-message user">${content}</div>`;
+            `;
+        }
+        return `<div class="chat-message user">${content}</div>`;
       }).join("") + status
     : '<div class="empty">Start wherever you are. Your messages will stay with this thought.</div>' + status;
+  state.aiNewResponseIndex = null;
 }
 
 function getAIEndpoint() {
@@ -1152,7 +1195,10 @@ async function requestAIReply(thoughtId, messages) {
 
     const nextMessages = [...messages, { role: "assistant", text: reply }];
     saveAIConversation(thoughtId, nextMessages);
-    if (state.activeThoughtId === thoughtId) state.aiMessages = nextMessages;
+    if (state.activeThoughtId === thoughtId) {
+      state.aiMessages = nextMessages;
+      state.aiNewResponseIndex = nextMessages.length - 1;
+    }
   } catch (error) {
     // The unanswered user message remains saved and can be retried.
   } finally {
