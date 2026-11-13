@@ -482,6 +482,21 @@ label {
   align-self: flex-start;
   max-width: 95%;
 }
+.ai-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-loading::before {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  content: "";
+  animation: ai-spin .8s linear infinite;
+}
+@keyframes ai-spin { to { transform: rotate(360deg); } }
 .plan {
   display: flex;
   gap: 12px;
@@ -697,7 +712,7 @@ code {
       <h3>Empty your head 🧠</h3>
       <p class="muted">Messy thoughts welcome. No organizing required.</p>
       <textarea id="thought" placeholder="I need to remember... I keep thinking about..."></textarea>
-      <button class="primary" type="button" onclick="addThought()">Save thought</button>
+      <button class="primary" type="button" onclick="addThought()">Submit to Clear Mind</button>
     </div>
     <div class="panel">
       <h3>Your thoughts</h3>
@@ -718,10 +733,10 @@ code {
         AI replies are connected to a Cloudflare Worker endpoint. Set <code>window.CLEAR_MIND_AI_URL</code> to your deployed Worker URL before sending a message, for example: <code>https://clear-mind-openai-worker.&lt;account-subdomain&gt;.workers.dev/api/explore</code>
       </div>
       <div id="aiTranscript" class="chat-transcript" aria-live="polite"></div>
-      <form onsubmit="sendAIMessage(event)">
+      <form id="aiForm" onsubmit="sendAIMessage(event)">
         <label for="aiMessage">What would you like to explore?</label>
         <textarea id="aiMessage" placeholder="Ask a follow-up, sort through ideas, or look for a next step..."></textarea>
-        <button class="primary" type="submit">Send message</button>
+        <button class="primary" id="aiSendButton" type="submit">Send message</button>
       </form>
     </div>
   </section>
@@ -865,6 +880,7 @@ const state = {
   plans: [],
   activeThoughtId: null,
   aiMessages: [],
+  aiPendingThoughtIds: new Set(),
   editingTaskId: null
 };
 
@@ -979,35 +995,62 @@ function conversationKey(thoughtId) {
   return "cm_ai_conversation_" + String(thoughtId);
 }
 
-function openAI(thoughtId) {
+function loadAIConversation(thoughtId) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(conversationKey(thoughtId)) || "[]");
+    return Array.isArray(saved)
+      ? saved.filter((message) => message && (message.role === "user" || message.role === "assistant") && typeof message.text === "string")
+      : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveAIConversation(thoughtId, messages) {
+  try {
+    localStorage.setItem(conversationKey(thoughtId), JSON.stringify(messages));
+  } catch (error) {
+    // Keep the conversation usable if browser storage is unavailable.
+  }
+}
+
+function openAI(thoughtId, startConversation = false) {
   const thought = state.thoughts.find((item) => item.id === thoughtId);
   if (!thought) return;
 
   state.activeThoughtId = thoughtId;
   $("aiThoughtContext").textContent = thought.text;
-
-  try {
-    const saved = JSON.parse(localStorage.getItem(conversationKey(thoughtId)) || "[]");
-    state.aiMessages = Array.isArray(saved)
-      ? saved.filter((message) => message && (message.role === "user" || message.role === "assistant") && typeof message.text === "string")
-      : [];
-  } catch (error) {
-    state.aiMessages = [];
+  state.aiMessages = loadAIConversation(thoughtId);
+  if (startConversation && !state.aiMessages.length) {
+    state.aiMessages = [{ role: "user", text: thought.text }];
+    saveAIConversation(thoughtId, state.aiMessages);
   }
 
   renderAIConversation();
   switchView("aiConversation");
+  if (startConversation && state.aiMessages.length === 1 && state.aiMessages[0].role === "user") {
+    requestAIReply(thoughtId, state.aiMessages);
+  }
 }
 
 function renderAIConversation() {
+  const isPending = state.aiPendingThoughtIds.has(state.activeThoughtId);
+  const needsReply = state.aiMessages.length && state.aiMessages[state.aiMessages.length - 1].role === "user";
+  const status = isPending
+    ? '<div class="notice ai-loading" role="status">Clear Mind is reading what you shared…</div>'
+    : needsReply
+      ? '<div class="notice" role="alert">I couldn’t connect just now, but what you shared is still here. You can try again when you’re ready.<div class="task-actions"><button class="secondary mini-button" type="button" onclick="retryAIMessage()">Try again</button></div></div>'
+      : "";
+  $("aiMessage").disabled = isPending;
+  $("aiSendButton").disabled = isPending;
   $("aiTranscript").innerHTML = state.aiMessages.length
     ? state.aiMessages.map((message) => `
         <div class="chat-message ${message.role}">
           <strong>${message.role === "user" ? "You" : "Clear Mind"}</strong>
           <div>${escapeHTML(message.text)}</div>
         </div>
-      `).join("")
-    : '<div class="empty">Start wherever you are. Your messages will stay with this thought.</div>';
+      `).join("") + status
+    : '<div class="empty">Start wherever you are. Your messages will stay with this thought.</div>' + status;
 }
 
 function getAIEndpoint() {
@@ -1015,31 +1058,18 @@ function getAIEndpoint() {
   return current || aiEndpoint;
 }
 
-async function sendAIMessage(event) {
-  event.preventDefault();
-  const text = $("aiMessage").value.trim();
-  if (!text || state.activeThoughtId === null) return;
-
-  const thought = state.thoughts.find((item) => item.id === state.activeThoughtId);
+async function requestAIReply(thoughtId, messages) {
+  if (state.aiPendingThoughtIds.has(thoughtId)) return;
+  const thought = state.thoughts.find((item) => item.id === thoughtId);
   const endpoint = getAIEndpoint();
 
   if (!thought || !endpoint) {
-    alert("AI is not connected yet. Set window.CLEAR_MIND_AI_URL to your deployed Cloudflare Worker URL before sending a message.");
+    if (state.activeThoughtId === thoughtId) renderAIConversation();
     return;
   }
 
-  const userMessage = { role: "user", text };
-  const nextMessages = [...state.aiMessages, userMessage];
-  state.aiMessages = nextMessages;
-  try {
-    localStorage.setItem(conversationKey(state.activeThoughtId), JSON.stringify(state.aiMessages));
-  } catch (error) {
-    // ignore persistence failure; keep the UI responsive and surface the error for the user
-  }
-
-  $("aiMessage").value = "";
-  renderAIConversation();
-
+  state.aiPendingThoughtIds.add(thoughtId);
+  if (state.activeThoughtId === thoughtId) renderAIConversation();
   try {
     const response = await fetch(endpoint, {
       method: "POST",
@@ -1047,9 +1077,12 @@ async function sendAIMessage(event) {
         "Content-Type": "application/json",
         Accept: "application/json"
       },
-            body: JSON.stringify({
+      body: JSON.stringify({
         thoughtText: thought.text,
-        messages: nextMessages.slice(-10).map((message) => ({ role: message.role, text: message.text }))
+        messages: messages
+          .filter((message, index) => !(index === 0 && message.role === "user" && message.text === thought.text))
+          .slice(-10)
+          .map((message) => ({ role: message.role, text: message.text }))
       })
     });
 
@@ -1065,17 +1098,39 @@ async function sendAIMessage(event) {
       throw new Error("Empty AI response");
     }
 
-    state.aiMessages.push({ role: "assistant", text: reply });
-    localStorage.setItem(conversationKey(state.activeThoughtId), JSON.stringify(state.aiMessages));
-    renderAIConversation();
+    const nextMessages = [...messages, { role: "assistant", text: reply }];
+    saveAIConversation(thoughtId, nextMessages);
+    if (state.activeThoughtId === thoughtId) state.aiMessages = nextMessages;
   } catch (error) {
-    state.aiMessages.push({
-      role: "assistant",
-      text: error.message
-    });
-    localStorage.setItem(conversationKey(state.activeThoughtId), JSON.stringify(state.aiMessages));
-    renderAIConversation();
+    // The unanswered user message remains saved and can be retried.
+  } finally {
+    state.aiPendingThoughtIds.delete(thoughtId);
+    if (state.activeThoughtId === thoughtId) renderAIConversation();
   }
+}
+
+async function sendAIMessage(event) {
+  event.preventDefault();
+  const text = $("aiMessage").value.trim();
+  const thoughtId = state.activeThoughtId;
+  if (!text || thoughtId === null || state.aiPendingThoughtIds.has(thoughtId)) return;
+
+  const thought = state.thoughts.find((item) => item.id === thoughtId);
+  if (!thought) return;
+
+  state.aiMessages = [...state.aiMessages, { role: "user", text }];
+  saveAIConversation(thoughtId, state.aiMessages);
+  $("aiMessage").value = "";
+  renderAIConversation();
+  await requestAIReply(thoughtId, state.aiMessages);
+}
+
+async function retryAIMessage() {
+  const thoughtId = state.activeThoughtId;
+  if (thoughtId === null || state.aiPendingThoughtIds.has(thoughtId)) return;
+  const messages = state.aiMessages;
+  if (!messages.length || messages[messages.length - 1].role !== "user") return;
+  await requestAIReply(thoughtId, messages);
 }
 
 function resetTaskForm() {
@@ -1174,10 +1229,13 @@ function addThought() {
   const text = $("thought").value.trim();
   if (!text) return;
 
-  state.thoughts.unshift({ id: Date.now(), text });
+  let id = Date.now();
+  while (state.thoughts.some((thought) => thought.id === id)) id += 1;
+  state.thoughts.unshift({ id, text });
   $("thought").value = "";
   saveState();
   render();
+  openAI(id, true);
 }
 
 function deleteThought(id) {
