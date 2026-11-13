@@ -118,6 +118,11 @@ describe("Clear Mind Worker with Cloudflare Workers AI", () => {
     assert.deepEqual(await result.json(), { reply: "One small step at a time." });
     assert.equal(runModel, "@cf/google/gemma-4-26b-a4b-it");
     assert.equal(runOptions.messages.length, 3);
+    assert.equal(runOptions.messages[0].role, "system");
+    assert.match(runOptions.messages[0].content, /Distinguish overwhelm, exhaustion, frustration, low motivation, avoidance, and genuine limits/);
+    assert.match(runOptions.messages[0].content, /Do not assume what the user wants/);
+    assert.match(runOptions.messages[0].content, /Offer suggestions only when they fit what the user has shared/);
+    assert.match(runOptions.messages[0].content, /Support the user's own judgment, choices, and confidence/);
     assert.match(runOptions.messages[1].content, /Selected idea/);
     assert.equal(runOptions.messages[2].content, "Help me sort this");
     assert.equal(JSON.stringify(runOptions).includes("other thought"), false);
