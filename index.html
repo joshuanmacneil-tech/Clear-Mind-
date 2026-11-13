@@ -1235,7 +1235,6 @@ function addThought() {
   $("thought").value = "";
   saveState();
   render();
-  openAI(id, true);
 }
 
 function deleteThought(id) {
@@ -1371,7 +1370,7 @@ function renderThoughts() {
           ${escapeHTML(thought.text)}
           <div class="meta">🧠 Brain dump</div>
           <div class="thought-actions">
-            <button type="button" class="secondary mini-button" onclick="openAI(${thought.id})">✨ Explore with AI</button>
+            <button type="button" class="secondary mini-button" onclick="openAI(${thought.id}, true)">✨ Explore with AI</button>
             <button type="button" class="secondary mini-button" onclick="convertThought(${thought.id})">Turn into task</button>
             <button type="button" class="delete mini-button" onclick="deleteThought(${thought.id})">Delete</button>
           </div>
