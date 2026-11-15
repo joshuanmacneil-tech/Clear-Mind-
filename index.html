@@ -249,6 +249,72 @@ small, .muted, label { color: var(--muted); }
 #todayPlans .plan {
   padding: 11px 0;
 }
+#todayWins {
+  margin: 18px 0 22px;
+  padding: 18px;
+  border: 1px solid #e1e8dd;
+  border-radius: 20px;
+  background: linear-gradient(125deg, #f1f5ee, #faf7ef);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(6px);
+}
+#todayWins.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity .3s ease, transform .3s ease;
+}
+#todayWins[hidden] { display: none; }
+#todayWins h3 {
+  margin: 0 0 12px;
+  color: var(--accent-dark);
+  font-size: 15px;
+}
+.today-win-list {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.today-win {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(225, 232, 221, .8);
+  border-radius: 13px;
+  background: rgba(255, 254, 250, .82);
+}
+.today-win.is-entering {
+  animation: today-win-enter .28s ease both;
+}
+@keyframes today-win-enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.today-win-check {
+  display: grid;
+  flex: 0 0 21px;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+.today-win-title {
+  padding-top: 1px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.today-wins-more {
+  margin: 10px 2px 0;
+  color: var(--soft);
+  font-size: 12px;
+}
 .brain-dump-entry {
   position: relative;
   display: block;
@@ -854,6 +920,7 @@ code {
       <span>Drop your thoughts here. No organizing required.</span>
       <span class="entry-arrow" aria-hidden="true">→</span>
     </button>
+    <section id="todayWins" aria-label="Today's Big Wins" hidden></section>
   </section>
 
   <section id="dump" class="view">
@@ -1133,6 +1200,10 @@ function escapeHTML(value) {
   }[char]));
 }
 
+function getLocalDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 function switchView(id) {
   const validViews = ["home", "dump", "tasks", "planner", "aiConversation"];
   if (!validViews.includes(id)) return;
@@ -1400,8 +1471,15 @@ function toggleTask(id) {
   const task = state.tasks.find((item) => item.id === id);
   if (task) {
     const completing = !task.done;
-    task.done = !task.done;
-    if (completing && state.activeFocusTaskId === id) state.activeFocusTaskId = null;
+    task.done = completing;
+    if (completing) {
+      task.completedAt = new Date().toISOString();
+      if (state.activeFocusTaskId === id) {
+        state.activeFocusTaskId = state.tasks.find((item) => !item.done)?.id ?? null;
+      }
+    } else {
+      delete task.completedAt;
+    }
     if (completing) showTaskCelebration();
     saveState();
     render();
@@ -1581,7 +1659,7 @@ function renderTasks() {
 
 function renderHome() {
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const todayKey = getLocalDateKey(today);
   const openTasks = state.tasks.filter((task) => !task.done);
   const todayTasks = openTasks.filter((task) => task.due === todayKey);
   const todayPlans = [...state.plans].sort((a, b) => a.time.localeCompare(b.time));
@@ -1651,6 +1729,42 @@ function renderHome() {
       </div>
     `)
   ].join("");
+
+  const wins = state.tasks
+    .filter((task) => {
+      if (!task.done || typeof task.completedAt !== "string") return false;
+      const completedAt = new Date(task.completedAt);
+      return !Number.isNaN(completedAt.getTime()) && getLocalDateKey(completedAt) === todayKey;
+    })
+    .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt) || Number(b.id) - Number(a.id));
+  const winsSection = $("todayWins");
+  if (wins.length) {
+    const displayedWins = wins.slice(0, 3);
+    const previousWinIds = new Set(
+      [...winsSection.querySelectorAll(".today-win")].map((item) => item.dataset.taskId)
+    );
+    winsSection.innerHTML = `
+      <h3>Today's Big Wins</h3>
+      <ul class="today-win-list">
+        ${displayedWins.map((task) => `
+          <li class="today-win${previousWinIds.has(String(task.id)) ? "" : " is-entering"}" data-task-id="${escapeHTML(task.id)}">
+            <span class="today-win-check" aria-hidden="true">✓</span>
+            <span class="today-win-title">${escapeHTML(task.title)}</span>
+          </li>
+        `).join("")}
+      </ul>
+      ${wins.length > 3 ? `<p class="today-wins-more">+ ${wins.length - 3} more finished today</p>` : ""}
+    `;
+    if (winsSection.hidden) {
+      winsSection.classList.remove("is-visible");
+      winsSection.hidden = false;
+      requestAnimationFrame(() => winsSection.classList.add("is-visible"));
+    }
+  } else {
+    winsSection.innerHTML = "";
+    winsSection.hidden = true;
+    winsSection.classList.remove("is-visible");
+  }
 }
 
 function toggleTodayPlans() {
