@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-labelledby="title">
+  <title id="title">Clear Mind</title>
+  <rect width="192" height="192" rx="42" fill="#f2f5ef"/>
+  <circle cx="96" cy="96" r="68" fill="#e8efe7"/>
+  <g transform="translate(0 1)">
+    <path d="M91 46c-4-9 2-17 9-19-2 8 0 12 5 17" fill="#78a181" stroke="#54755e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M54 91c0-26 18-45 42-45s42 19 42 45v22c0 20-16 34-42 34s-42-14-42-34V91Z" fill="#a9c5a5" stroke="#54755e" stroke-width="3"/>
+    <circle cx="78" cy="94" r="4" fill="#283a30"/>
+    <circle cx="112" cy="94" r="4" fill="#283a30"/>
+    <path d="M79 108c6 6 16 6 22 0" fill="none" stroke="#54755e" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="66" cy="105" r="5" fill="#d98f82" opacity=".65"/>
+    <circle cx="126" cy="105" r="5" fill="#d98f82" opacity=".65"/>
+  </g>
+  <path d="M143 43v18m-9-9h18" stroke="#d6a64f" stroke-width="4" stroke-linecap="round"/>
+</svg>

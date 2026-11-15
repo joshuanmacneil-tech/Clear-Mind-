@@ -1,0 +1,28 @@
+{
+  "id": "./",
+  "name": "Clear Mind",
+  "short_name": "Clear Mind",
+  "description": "A little less noise.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#f6f5ef",
+  "background_color": "#f6f5ef",
+  "icons": [
+    {
+      "src": "./icons/clear-mind.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/clear-mind.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
