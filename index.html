@@ -964,6 +964,7 @@ code {
           <div>
             <label for="category">Area</label>
             <select id="category">
+              <option value="">Choose an area (optional)</option>
               <option>Personal</option>
               <option>Home</option>
               <option>Work</option>
@@ -1409,7 +1410,7 @@ function resetTaskForm() {
   $("taskCancelButton").style.display = "none";
   setTaskDetailsExpanded(false);
   $("taskName").value = "";
-  $("category").value = "Personal";
+  $("category").value = "";
   $("kind").value = "regular";
   $("due").value = "";
 }
@@ -1422,7 +1423,7 @@ function populateTaskForm(task) {
   $("taskCancelButton").style.display = "inline-block";
   setTaskDetailsExpanded(true);
   $("taskName").value = task.title;
-  $("category").value = task.category || "Personal";
+  $("category").value = task.category || "";
   $("kind").value = task.kind || "regular";
   $("due").value = task.due || "";
 }
@@ -1554,7 +1555,6 @@ function convertThought(id) {
   state.tasks.unshift({
     id: Date.now(),
     title: thought.text,
-    category: "Personal",
     kind: "regular",
     due: "",
     done: false
@@ -1626,12 +1626,12 @@ function taskHTML(task, showFocusAction = false) {
       <div class="task-content">
         <strong>${escapeHTML(task.title)}</strong>
         <div class="meta">
-          <span class="tag">${escapeHTML(task.category)}</span>
+          ${task.category ? `<span class="tag">${escapeHTML(task.category)}</span>` : ""}
           ${task.kind === "quick" ? '<span class="quick">⚡ Quick win</span>' : ""}
           ${task.due ? ` · 📅 ${escapeHTML(task.due)}` : ""}
         </div>
         <div class="task-actions">
-          ${showFocusAction ? `<button type="button" class="secondary mini-button focus-task-button${isFocused ? " is-focused" : ""}" data-action="focus-task" data-id="${task.id}" aria-pressed="${isFocused}" aria-label="${isFocused ? "Remove task from focus" : "Set task as focus"}"${task.done ? " disabled" : ""}>${isFocused ? "★ Focused" : "☆ Focus"}</button>` : ""}
+          ${showFocusAction && !task.done ? `<button type="button" class="secondary mini-button focus-task-button${isFocused ? " is-focused" : ""}" data-action="focus-task" data-id="${task.id}" aria-pressed="${isFocused}" aria-label="${isFocused ? "Remove task from focus" : "Set task as focus"}">${isFocused ? "★ Focused" : "☆ Focus"}</button>` : ""}
           <button type="button" class="secondary mini-button" data-action="edit-task" data-id="${task.id}">Edit</button>
           <button type="button" class="delete mini-button" data-action="delete-task" data-id="${task.id}" aria-label="Delete task">Delete</button>
         </div>
