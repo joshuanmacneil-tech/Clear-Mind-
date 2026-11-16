@@ -660,6 +660,31 @@ label {
   padding: 9px 13px;
   background: #f5f7f3;
 }
+.chat-task-confirmation {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  margin: 5px 0 0 26px;
+  padding: 5px 9px;
+  border: 1px solid #dfe8dc;
+  border-radius: 999px;
+  background: #edf3e9;
+  color: #536d56;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.chat-task-confirmation button {
+  padding: 0;
+  background: transparent;
+  color: #536d56;
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.chat-task-confirmation button:hover { transform: none; }
 @keyframes mascot-breathe {
   0%, 100% { transform: translateY(0) rotate(0); }
   50% { transform: translateY(-1px) rotate(1deg); }
@@ -1128,6 +1153,18 @@ function loadAIConversation(thoughtId) {
     const saved = JSON.parse(localStorage.getItem(conversationKey(thoughtId)) || "[]");
     return Array.isArray(saved)
       ? saved.filter((message) => message && (message.role === "user" || message.role === "assistant") && typeof message.text === "string")
+        .map((message) => {
+          if (!message.taskAction || typeof message.taskAction !== "object") return message;
+          const { type, taskId, title, focusAssigned } = message.taskAction;
+          if ((type !== "added" && type !== "completed") || !Number.isSafeInteger(taskId) || typeof title !== "string") {
+            return { role: message.role, text: message.text };
+          }
+          return {
+            role: message.role,
+            text: message.text,
+            taskAction: { type, taskId, title, focusAssigned: type === "added" && focusAssigned === true }
+          };
+        })
       : [];
   } catch (error) {
     return [];
@@ -1184,6 +1221,19 @@ function renderAIConversation() {
           const position = mascotPositions[assistantResponseIndex % mascotPositions.length];
           const isNewResponse = state.aiNewResponseIndex === messageIndex;
           assistantResponseIndex += 1;
+          const taskAction = message.taskAction;
+          const actedTask = taskAction && state.tasks.find((task) => task.id === taskAction.taskId);
+          const showTaskConfirmation = actedTask && (
+            (taskAction.type === "added" && !actedTask.done) ||
+            (taskAction.type === "completed" && actedTask.done)
+          );
+          const confirmation = showTaskConfirmation
+            ? `<div class="chat-task-confirmation" role="status">✓ ${taskAction.type === "added"
+                ? `Added "${escapeHTML(taskAction.title)}" to ${taskAction.focusAssigned ? "Your next step" : "My list"}`
+                : `Marked "${escapeHTML(taskAction.title)}" complete`}${taskAction.type === "added"
+                ? ` <button type="button" data-action="undo-ai-added-task" data-id="${taskAction.taskId}">Undo</button>`
+                : ""}</div>`
+            : "";
           return `
               <div class="chat-response">
                 <svg class="chat-mascot${isNewResponse ? " mascot-entering" : ""}" data-position="${position}" viewBox="0 0 56 56" aria-hidden="true">
@@ -1198,6 +1248,7 @@ function renderAIConversation() {
                   </g>
                 </svg>
                 <div class="chat-message assistant">${content}</div>
+                ${confirmation}
               </div>
             `;
         }
@@ -1236,7 +1287,12 @@ async function requestAIReply(thoughtId, messages) {
         messages: messages
           .filter((message, index) => !(index === 0 && message.role === "user" && message.text === thought.text))
           .slice(-10)
-          .map((message) => ({ role: message.role, text: message.text }))
+          .map((message) => ({
+            role: message.role,
+            text: `${message.text}${message.role === "assistant" && message.taskAction
+              ? `\n[${message.taskAction.type === "added" ? "ADD_TASK" : "COMPLETE_TASK"}: ${message.taskAction.title}]`
+              : ""}`
+          }))
       })
     });
 
@@ -1252,7 +1308,13 @@ async function requestAIReply(thoughtId, messages) {
       throw new Error("Empty AI response");
     }
 
-    const nextMessages = [...messages, { role: "assistant", text: reply }];
+    const processedReply = processAIActionTags(reply);
+    const nextMessages = [...messages, {
+      role: "assistant",
+      text: processedReply.text,
+      ...(processedReply.taskAction ? { taskAction: processedReply.taskAction } : {})
+    }];
+    if (processedReply.tasksChanged) saveState();
     saveAIConversation(thoughtId, nextMessages);
     if (state.activeThoughtId === thoughtId) {
       state.aiMessages = nextMessages;
@@ -1262,8 +1324,89 @@ async function requestAIReply(thoughtId, messages) {
     // The unanswered user message remains saved and can be retried.
   } finally {
     state.aiPendingThoughtIds.delete(thoughtId);
-    if (state.activeThoughtId === thoughtId) renderAIConversation();
+    if (state.activeThoughtId === thoughtId) render();
   }
+}
+
+function normalizeTaskTitle(title) {
+  return typeof title === "string" ? title.trim().replace(/\s+/g, " ").toLowerCase() : "";
+}
+
+function addTaskFromAI(title) {
+  const normalizedTitle = normalizeTaskTitle(title);
+  if (!normalizedTitle || state.tasks.some((task) => normalizeTaskTitle(task.title) === normalizedTitle)) {
+    return null;
+  }
+
+  let id = Date.now();
+  while (state.tasks.some((task) => task.id === id)) id += 1;
+  const task = { id, title: title.trim().replace(/\s+/g, " "), category: "", kind: "regular", due: "", done: false };
+  const todayKey = getLocalDateKey(new Date());
+  const focusedTask = state.tasks.find((item) => item.id === state.activeFocusTaskId && !item.done);
+  const taskDueToday = state.tasks.some((item) => !item.done && item.due === todayKey);
+  const focusAssigned = !focusedTask && !taskDueToday;
+  state.tasks.unshift(task);
+  if (focusAssigned) state.activeFocusTaskId = task.id;
+  return { task, focusAssigned };
+}
+
+function completeTaskFromAI(title) {
+  const normalizedTitle = normalizeTaskTitle(title);
+  const task = state.tasks.find((item) => !item.done && normalizeTaskTitle(item.title) === normalizedTitle);
+  if (!task) return null;
+
+  task.done = true;
+  task.completedAt = new Date().toISOString();
+  if (state.activeFocusTaskId === task.id) {
+    state.activeFocusTaskId = state.tasks.find((item) => !item.done)?.id ?? null;
+  }
+  return task;
+}
+
+function processAIActionTags(reply) {
+  const tagPattern = /\[(ADD_TASK|COMPLETE_TASK):\s*([^\]\r\n]{1,120})\s*\]/gi;
+  const matches = [...reply.matchAll(tagPattern)];
+  const text = reply.replace(tagPattern, "").trim();
+  for (const match of matches) {
+    const type = match[1].toUpperCase();
+    const title = match[2].trim().replace(/\s+/g, " ");
+    if (!title) continue;
+
+    if (type === "ADD_TASK") {
+      const added = addTaskFromAI(title);
+      if (added) {
+        return {
+          text,
+          tasksChanged: true,
+          taskAction: {
+            type: "added",
+            taskId: added.task.id,
+            title: added.task.title,
+            focusAssigned: added.focusAssigned
+          }
+        };
+      }
+    } else {
+      const completed = completeTaskFromAI(title);
+      if (completed) {
+        return {
+          text,
+          tasksChanged: true,
+          taskAction: { type: "completed", taskId: completed.id, title: completed.title }
+        };
+      }
+    }
+  }
+  return { text, tasksChanged: false, taskAction: null };
+}
+
+function undoAIAddedTask(id) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task) return;
+  state.tasks = state.tasks.filter((item) => item.id !== id);
+  if (state.activeFocusTaskId === id) state.activeFocusTaskId = null;
+  saveState();
+  render();
 }
 
 async function sendAIMessage(event) {
@@ -1435,24 +1578,6 @@ function deleteThought(id) {
   render();
 }
 
-function convertThought(id) {
-  const thought = state.thoughts.find((item) => item.id === id);
-  if (!thought) return;
-
-  state.tasks.unshift({
-    id: Date.now(),
-    title: thought.text,
-    kind: "regular",
-    due: "",
-    done: false
-  });
-
-  state.thoughts = state.thoughts.filter((item) => item.id !== id);
-  saveState();
-  render();
-  switchView("tasks");
-}
-
 function getVisibleTasks() {
   const sortKey = $("taskSort")?.value || "newest";
   const filterKey = $("taskFilter")?.value || "all";
@@ -1604,8 +1729,7 @@ function renderThoughts() {
           ${escapeHTML(thought.text)}
           <div class="meta">🧠 Brain dump</div>
           <div class="thought-actions">
-            <button type="button" class="secondary mini-button" onclick="openAI(${thought.id}, true)">✨ Explore with AI</button>
-            <button type="button" class="secondary mini-button" onclick="convertThought(${thought.id})">Turn into task</button>
+            <button type="button" class="secondary mini-button" onclick="openAI(${thought.id}, true)">${loadAIConversation(thought.id).length ? "Continue chat" : "✨ Explore with AI"}</button>
             <button type="button" class="delete mini-button" onclick="deleteThought(${thought.id})">Delete</button>
           </div>
         </div>
@@ -1653,6 +1777,9 @@ document.addEventListener("click", (event) => {
       break;
     case "delete-task":
       deleteTask(id);
+      break;
+    case "undo-ai-added-task":
+      undoAIAddedTask(id);
       break;
     case "edit-task": {
       const task = state.tasks.find((item) => item.id === id);

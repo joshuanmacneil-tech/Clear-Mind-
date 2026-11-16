@@ -123,6 +123,9 @@ describe("Clear Mind Worker with Cloudflare Workers AI", () => {
     assert.match(runOptions.messages[0].content, /Do not assume what the user wants/);
     assert.match(runOptions.messages[0].content, /Offer suggestions only when they fit what the user has shared/);
     assert.match(runOptions.messages[0].content, /Support the user's own judgment, choices, and confidence/);
+    assert.match(runOptions.messages[0].content, /\[ADD_TASK: short actionable task title\]/);
+    assert.match(runOptions.messages[0].content, /\[COMPLETE_TASK: exact task title previously identified in this chat\]/);
+    assert.match(runOptions.messages[0].content, /Only do this after the user explicitly agrees/);
     assert.match(runOptions.messages[1].content, /Selected idea/);
     assert.equal(runOptions.messages[2].content, "Help me sort this");
     assert.equal(JSON.stringify(runOptions).includes("other thought"), false);

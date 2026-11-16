@@ -1,11 +1,12 @@
 # Clear Mind — OpenAI Cloudflare Worker (Stage 1)
 
-This directory contains a standalone Cloudflare Worker API for Clear Mind's future Explore with AI frontend integration. It does **not** change or depend on `index.html`, Brain Dump data, tasks, or any browser localStorage keys. Stage 1 is backend-only; the current frontend is intentionally not connected.
+This directory contains the Cloudflare Worker API used by Clear Mind's Explore with AI conversation in `index.html`. The browser sends only the selected Brain Dump thought and that thought's chat history; it keeps tasks and conversations in localStorage.
 
 ## What it does
 
 - `POST /api/explore` accepts only `{ "thoughtText": "...", "messages": [{"role":"user|assistant","text":"..."}] }`.
 - It sends the selected thought and only the supplied history for that thought to OpenAI. It does not read or receive other Brain Dump entries.
+- Its system prompt asks for `[ADD_TASK: ...]` only after the user commits to a specific task and `[COMPLETE_TASK: ...]` only when the user reports completing a task identified in that chat. The frontend removes these tags from displayed text and applies completion actions only when the title matches an open task locally.
 - It uses `OPENAI_API_KEY` only as a server-side Worker secret and `OPENAI_MODEL` as a configurable model identifier. The default is `gpt-4o-mini`; select a model currently available to your OpenAI API account.
 - It validates JSON, message roles, field names, per-thought text lengths, history count, content type, and total request bytes.
 - It uses Cloudflare's native Workers rate-limit binding, defaulting to 10 requests per IP per 60 seconds. This is a best-effort abuse safeguard with location-local counters, not a strict global quota or authentication.
