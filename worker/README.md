@@ -1,6 +1,6 @@
 # Clear Mind — OpenAI Cloudflare Worker (Stage 1)
 
-This directory contains a standalone Cloudflare Worker API for Clear Mind's future Explore with AI frontend integration. It does **not** change or depend on `index.html`, Brain Dump data, tasks, planner data, or any browser localStorage keys. Stage 1 is backend-only; the current frontend is intentionally not connected.
+This directory contains a standalone Cloudflare Worker API for Clear Mind's future Explore with AI frontend integration. It does **not** change or depend on `index.html`, Brain Dump data, tasks, or any browser localStorage keys. Stage 1 is backend-only; the current frontend is intentionally not connected.
 
 ## What it does
 

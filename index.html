@@ -222,33 +222,6 @@ small, .muted, label { color: var(--muted); }
   gap: 8px;
   flex-wrap: wrap;
 }
-.today-plans {
-  margin: 0 0 22px;
-}
-.today-plans-toggle {
-  width: 100%;
-  padding: 11px 12px;
-  background: transparent;
-  color: var(--muted);
-  text-align: left;
-  font-size: 13px;
-  font-weight: 550;
-  box-shadow: none;
-}
-.today-plans-toggle:hover:not(:disabled) {
-  background: rgba(232, 239, 231, .65);
-  transform: none;
-}
-.today-plans-toggle:disabled { opacity: 1; }
-#todayPlans {
-  padding: 0 12px;
-}
-#todayPlans .task {
-  margin: 7px 0;
-}
-#todayPlans .plan {
-  padding: 11px 0;
-}
 #todayWins {
   margin: 18px 0 22px;
   padding: 18px;
@@ -364,10 +337,9 @@ nav {
   right: 0;
   bottom: 0;
   left: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
-  overflow-x: auto;
-  justify-content: center;
   margin: 0;
   padding: 10px max(18px, calc((100% - 850px) / 2)) calc(10px + env(safe-area-inset-bottom));
   border-top: 1px solid #e2e7df;
@@ -378,8 +350,10 @@ nav {
 nav button {
   background: transparent;
   color: var(--muted);
+  min-width: 0;
+  min-height: 48px;
   white-space: nowrap;
-  padding: 11px 15px;
+  padding: 11px 8px;
 }
 nav button.active {
   background: var(--accent-soft);
@@ -388,8 +362,7 @@ nav button.active {
 .view { display: none; }
 .view.active { display: block; }
 .app[data-active-view="dump"] > .hero,
-.app[data-active-view="dump"] > .stats,
-.app[data-active-view="planner"] > .stats { display: none; }
+.app[data-active-view="dump"] > .stats { display: none; }
 .app[data-active-view="home"] > .hero,
 .app[data-active-view="home"] > .stats { display: none; }
 .app[data-active-view="tasks"] > .hero { display: none; }
@@ -714,57 +687,6 @@ label {
   animation: ai-spin .8s linear infinite;
 }
 @keyframes ai-spin { to { transform: rotate(360deg); } }
-.plan {
-  display: flex;
-  gap: 12px;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--panel-border);
-  align-items: center;
-}
-.plan strong {
-  color: var(--accent-dark);
-  min-width: 65px;
-}
-.calendar-panel h3 { margin-bottom: 14px; }
-.calendar {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 4px;
-  table-layout: fixed;
-  text-align: center;
-}
-.calendar caption {
-  padding: 0 0 10px;
-  color: var(--accent-dark);
-  font-weight: 700;
-}
-.calendar th {
-  padding: 8px 2px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 650;
-}
-.calendar td {
-  height: 48px;
-  padding: 4px;
-  border-radius: 12px;
-  background: var(--panel-soft);
-  color: var(--text);
-}
-.calendar td:empty { background: transparent; }
-.calendar time {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  margin: auto;
-  place-items: center;
-  border-radius: 50%;
-}
-.calendar [aria-current="date"] {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 700;
-}
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -814,12 +736,11 @@ code {
   header > .date { max-width: 112px; text-align: right; line-height: 1.3; }
   #home .pick { padding: 20px 18px; }
   .brain-dump-entry { padding: 17px; }
-  nav { justify-content: space-between; gap: 4px; padding-right: 10px; padding-left: 10px; }
+  nav { gap: 4px; padding-right: 10px; padding-left: 10px; }
   nav button {
-    flex: 1 1 0;
-    min-width: 0;
     padding: 10px 3px;
     white-space: normal;
+    min-height: 48px;
     font-size: 11px;
     line-height: 1.25;
     border-radius: 12px;
@@ -901,19 +822,12 @@ code {
     <button type="button" class="active" data-view="home" aria-pressed="true" onclick="switchView('home')">☀️ Today</button>
     <button type="button" data-view="dump" aria-pressed="false" onclick="switchView('dump')">🧠 Brain dump</button>
     <button type="button" data-view="tasks" aria-pressed="false" onclick="switchView('tasks')">📝 My list</button>
-    <button type="button" data-view="planner" aria-pressed="false" onclick="switchView('planner')">🗓️ Day planner</button>
   </nav>
 
   <section id="home" class="view active">
     <div class="pick" id="pickBox">
       <h2>Your next step</h2>
       <div id="homeFocus"></div>
-    </div>
-    <div class="today-plans">
-      <button class="today-plans-toggle" id="todayPlanToggle" type="button" aria-expanded="false" aria-controls="todayPlans" onclick="toggleTodayPlans()">
-        <span id="todayPlanCount"></span>
-      </button>
-      <div id="todayPlans" hidden></div>
     </div>
     <button class="brain-dump-entry" type="button" onclick="switchView('dump')">
       <strong>What's on your mind?</strong>
@@ -1011,25 +925,6 @@ code {
     </div>
   </section>
 
-  <section id="planner" class="view">
-    <div class="panel calendar-panel">
-      <h3>Calendar</h3>
-      <div id="calendar"></div>
-    </div>
-    <div class="panel">
-      <h3>Make a little room in your day ☀️</h3>
-      <p class="muted">A gentle guide, not a strict schedule.</p>
-      <label for="planTime">Time</label>
-      <input type="time" id="planTime">
-      <label for="planName">What's the plan?</label>
-      <input id="planName" placeholder="Take a break, go shopping...">
-      <button class="primary" type="button" onclick="addPlan()">Add to my day</button>
-    </div>
-    <div class="panel">
-      <h3>Today's flow</h3>
-      <div id="planList"></div>
-    </div>
-  </section>
 </div>
 
 <div id="taskCelebration" class="task-celebration" role="status" aria-live="polite" aria-atomic="true" hidden>
@@ -1048,7 +943,6 @@ window.CLEAR_MIND_AI_URL = "https://clear-mind-openai-worker.joshua-n-macneil.wo
 const STORAGE = {
   tasks: "cm_tasks_v2",
   thoughts: "cm_thoughts_v2",
-  plans: "cm_plans_v2",
   activeFocusTask: "cm_active_focus_task_v1"
 };
 
@@ -1095,14 +989,12 @@ const encouragementMessages = [
 const state = {
   tasks: [],
   thoughts: [],
-  plans: [],
   activeThoughtId: null,
   aiMessages: [],
   aiNewResponseIndex: null,
   aiPendingThoughtIds: new Set(),
   editingTaskId: null,
-  activeFocusTaskId: null,
-  todayPlansExpanded: false
+  activeFocusTaskId: null
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1163,7 +1055,6 @@ function loadActiveFocusTaskId() {
 function migrateLegacyData() {
   const legacyTasks = loadData("cm_tasks");
   const legacyThoughts = loadData("cm_thoughts");
-  const legacyPlans = loadData("cm_plans");
 
   if (legacyTasks.length && !loadData(STORAGE.tasks).length) {
     localStorage.setItem(STORAGE.tasks, JSON.stringify(legacyTasks));
@@ -1171,16 +1062,12 @@ function migrateLegacyData() {
   if (legacyThoughts.length && !loadData(STORAGE.thoughts).length) {
     localStorage.setItem(STORAGE.thoughts, JSON.stringify(legacyThoughts));
   }
-  if (legacyPlans.length && !loadData(STORAGE.plans).length) {
-    localStorage.setItem(STORAGE.plans, JSON.stringify(legacyPlans));
-  }
 }
 
 function saveState() {
   try {
     localStorage.setItem(STORAGE.tasks, JSON.stringify(state.tasks));
     localStorage.setItem(STORAGE.thoughts, JSON.stringify(state.thoughts));
-    localStorage.setItem(STORAGE.plans, JSON.stringify(state.plans));
     if (state.activeFocusTaskId === null) {
       localStorage.removeItem(STORAGE.activeFocusTask);
     } else {
@@ -1206,8 +1093,8 @@ function getLocalDateKey(date) {
 }
 
 function switchView(id) {
-  const validViews = ["home", "dump", "tasks", "planner", "aiConversation"];
-  if (!validViews.includes(id)) return;
+  const validViews = ["home", "dump", "tasks", "aiConversation"];
+  if (!validViews.includes(id)) id = "home";
 
   $("app").dataset.activeView = id === "aiConversation" ? "dump" : id;
   if (id === "home") showEncouragement();
@@ -1566,24 +1453,6 @@ function convertThought(id) {
   switchView("tasks");
 }
 
-function addPlan() {
-  const time = $("planTime").value;
-  const name = $("planName").value.trim();
-  if (!time || !name) return;
-
-  state.plans.push({ id: Date.now(), time, text: name });
-  $("planName").value = "";
-  $("planTime").value = "";
-  saveState();
-  render();
-}
-
-function deletePlan(id) {
-  state.plans = state.plans.filter((plan) => plan.id !== id);
-  saveState();
-  render();
-}
-
 function getVisibleTasks() {
   const sortKey = $("taskSort")?.value || "newest";
   const filterKey = $("taskFilter")?.value || "all";
@@ -1662,10 +1531,8 @@ function renderHome() {
   const todayKey = getLocalDateKey(today);
   const openTasks = state.tasks.filter((task) => !task.done);
   const todayTasks = openTasks.filter((task) => task.due === todayKey);
-  const todayPlans = [...state.plans].sort((a, b) => a.time.localeCompare(b.time));
   const activeTask = openTasks.find((task) => task.id === state.activeFocusTaskId);
   const focusTask = activeTask || todayTasks[0] || null;
-  const focusPlan = focusTask ? null : todayPlans[0] || null;
   const focus = $("homeFocus");
 
   if (focusTask) {
@@ -1681,17 +1548,6 @@ function renderHome() {
         </div>
       </div>
     `;
-  } else if (focusPlan) {
-    focus.innerHTML = `
-      <div class="focus-task-content">
-        <h3>${escapeHTML(focusPlan.text)}</h3>
-        <p>Planned for ${escapeHTML(focusPlan.time)}</p>
-        <div class="focus-actions">
-          ${openTasks.length ? '<button class="secondary mini-button" type="button" onclick="pickTask()">Choose a task instead</button>' : ""}
-          <button class="secondary mini-button" type="button" onclick="switchView('planner')">Open day planner</button>
-        </div>
-      </div>
-    `;
   } else {
     focus.innerHTML = `
       <p class="focus-empty">Nothing queued up right now. Take a breath, or add one thing when you're ready.</p>
@@ -1702,33 +1558,6 @@ function renderHome() {
       </div>
     `;
   }
-
-  const remainingTasks = todayTasks.filter((task) => task.id !== focusTask?.id);
-  const remainingPlans = todayPlans.filter((plan) => plan.id !== focusPlan?.id);
-  const remainingCount = remainingTasks.length + remainingPlans.length;
-  if (!remainingCount) state.todayPlansExpanded = false;
-  const todayPlansContainer = document.querySelector(".today-plans");
-  todayPlansContainer.hidden = remainingCount === 0;
-  const toggle = $("todayPlanToggle");
-  $("todayPlanCount").textContent = remainingCount
-    ? `${remainingCount} other ${remainingCount === 1 ? "thing" : "things"} planned for today`
-    : "";
-  toggle.hidden = remainingCount === 0;
-  toggle.disabled = remainingCount === 0;
-  toggle.setAttribute("aria-expanded", String(state.todayPlansExpanded && remainingCount > 0));
-
-  const plansContainer = $("todayPlans");
-  plansContainer.hidden = !state.todayPlansExpanded || remainingCount === 0;
-  plansContainer.innerHTML = [
-    ...remainingTasks.map((task) => taskHTML(task)),
-    ...remainingPlans.map((plan) => `
-      <div class="plan">
-        <strong>${escapeHTML(plan.time)}</strong>
-        <span style="flex:1">${escapeHTML(plan.text)}</span>
-        <button type="button" class="delete" onclick="deletePlan(${plan.id})" aria-label="Remove ${escapeHTML(plan.text)} from today's plan">✕</button>
-      </div>
-    `)
-  ].join("");
 
   const wins = state.tasks
     .filter((task) => {
@@ -1767,12 +1596,6 @@ function renderHome() {
   }
 }
 
-function toggleTodayPlans() {
-  if ($("todayPlanToggle").disabled) return;
-  state.todayPlansExpanded = !state.todayPlansExpanded;
-  renderHome();
-}
-
 function renderThoughts() {
   $("thoughtList").innerHTML = state.thoughts.length
     ? state.thoughts.map((thought) => `
@@ -1789,51 +1612,6 @@ function renderThoughts() {
       </div>
     `).join("")
     : '<div class="empty">☁️ Nothing here yet. That is okay.</div>';
-}
-
-function renderPlans() {
-  $("planList").innerHTML = state.plans.length
-    ? [...state.plans].sort((a, b) => a.time.localeCompare(b.time)).map((plan) => `
-      <div class="plan">
-        <strong>${escapeHTML(plan.time)}</strong>
-        <span style="flex:1">${escapeHTML(plan.text)}</span>
-        <button type="button" class="delete" onclick="deletePlan(${plan.id})">✕</button>
-      </div>
-    `).join("")
-    : '<div class="empty">🌤️ Your day is wide open.</div>';
-}
-
-function renderCalendar() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const firstWeekday = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const monthLabel = today.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  const cells = Array(firstWeekday).fill("");
-
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const currentDay = day === today.getDate();
-    cells.push(`<td>${currentDay
-      ? `<time datetime="${date}" aria-current="date">${day}</time>`
-      : `<time datetime="${date}">${day}</time>`}</td>`);
-  }
-
-  while (cells.length % 7) cells.push("");
-
-  const weeks = [];
-  for (let index = 0; index < cells.length; index += 7) {
-    weeks.push(`<tr>${cells.slice(index, index + 7).map((cell) => cell || "<td></td>").join("")}</tr>`);
-  }
-
-  $("calendar").innerHTML = `
-    <table class="calendar">
-      <caption>${monthLabel}</caption>
-      <thead><tr>${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `<th scope="col">${day}</th>`).join("")}</tr></thead>
-      <tbody>${weeks.join("")}</tbody>
-    </table>
-  `;
 }
 
 function pickTask() {
@@ -1853,7 +1631,6 @@ function render() {
   renderTasks();
   renderHome();
   renderThoughts();
-  renderPlans();
   renderAIConversation();
 }
 
@@ -1891,7 +1668,6 @@ function initialize() {
   migrateLegacyData();
   state.tasks = loadData(STORAGE.tasks, []);
   state.thoughts = loadData(STORAGE.thoughts, []);
-  state.plans = loadData(STORAGE.plans, []);
   state.activeFocusTaskId = loadActiveFocusTaskId();
 
   const now = new Date();
@@ -1907,7 +1683,6 @@ function initialize() {
   $("taskSort").addEventListener("change", renderTasks);
   $("taskFilter").addEventListener("change", renderTasks);
 
-  renderCalendar();
   render();
   switchView("home");
 }
