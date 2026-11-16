@@ -867,7 +867,7 @@ code {
       <h3>Empty your head 🧠</h3>
       <p class="muted">Messy thoughts welcome. No organizing required.</p>
       <textarea id="thought" placeholder="I need to remember... I keep thinking about..."></textarea>
-      <button class="primary" type="button" onclick="addThought()">Submit to Clear Mind</button>
+      <button class="primary" id="thoughtSubmitButton" type="button" onclick="addThought()">Submit to Clear Mind</button>
     </div>
     <div class="panel">
       <h3>Your thoughts</h3>
@@ -1018,6 +1018,7 @@ const state = {
   aiMessages: [],
   aiNewResponseIndex: null,
   aiPendingThoughtIds: new Set(),
+  thoughtSubmissionPending: false,
   editingTaskId: null,
   activeFocusTaskId: null
 };
@@ -1098,8 +1099,10 @@ function saveState() {
     } else {
       localStorage.setItem(STORAGE.activeFocusTask, String(state.activeFocusTaskId));
     }
+    return true;
   } catch (error) {
     alert("Your browser could not save the changes. Check your browser storage settings.");
+    return false;
   }
 }
 
@@ -1557,15 +1560,29 @@ function deleteTask(id) {
 }
 
 function addThought() {
+  if (state.thoughtSubmissionPending) return;
   const text = $("thought").value.trim();
   if (!text) return;
 
-  let id = Date.now();
-  while (state.thoughts.some((thought) => thought.id === id)) id += 1;
-  state.thoughts.unshift({ id, text });
-  $("thought").value = "";
-  saveState();
-  render();
+  state.thoughtSubmissionPending = true;
+  const submitButton = $("thoughtSubmitButton");
+  submitButton.disabled = true;
+  try {
+    let id = Date.now();
+    while (state.thoughts.some((thought) => thought.id === id)) id += 1;
+    state.thoughts.unshift({ id, text });
+    if (!saveState()) {
+      state.thoughts = state.thoughts.filter((thought) => thought.id !== id);
+      return;
+    }
+
+    $("thought").value = "";
+    render();
+    openAI(id, true);
+  } finally {
+    state.thoughtSubmissionPending = false;
+    submitButton.disabled = false;
+  }
 }
 
 function deleteThought(id) {
@@ -1729,7 +1746,7 @@ function renderThoughts() {
           ${escapeHTML(thought.text)}
           <div class="meta">🧠 Brain dump</div>
           <div class="thought-actions">
-            <button type="button" class="secondary mini-button" onclick="openAI(${thought.id}, true)">${loadAIConversation(thought.id).length ? "Continue chat" : "✨ Explore with AI"}</button>
+            <button type="button" class="secondary mini-button" onclick="openAI(${thought.id}, true)">${loadAIConversation(thought.id).length ? "Continue chat" : "Open conversation"}</button>
             <button type="button" class="delete mini-button" onclick="deleteThought(${thought.id})">Delete</button>
           </div>
         </div>
