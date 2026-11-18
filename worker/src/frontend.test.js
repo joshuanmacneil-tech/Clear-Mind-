@@ -131,48 +131,67 @@ describe("Brain Dump task confirmation flow", () => {
     assert.deepEqual(frontend.getTasks(), []);
   });
 
-  it("recognizes natural affirmative replies, including an explicit matching task title", () => {
+  it("recognizes natural affirmative replies, spelling variations, and harmless fillers", () => {
     const frontend = createFrontend();
     const affirmativeReplies = [
-      "Yes, let's add that.",
-      "Yes, add it to my list.",
-      "Sure, go ahead.",
-      "Absolutely.",
-      "That sounds good.",
-      "Let's do it.",
-      "Please add that.",
-      "Yes, please.",
-      "Yes, let's add call dentist to my list.",
-      "Please add Call dentist.",
-      "I think that would help.",
-      "Okay, let's do it.",
-      "Yeah, add it please.",
-      "Sounds good to me.",
+      "Yes", "yeah", "Yah!", "yea", "yep", "yup", "yeh", "ya",
+      "Sure", "certainly", "absolutely", "definitely",
+      "Mhm", "mm-hmm", "uh-huh", "uh huh",
+      "I think so", "I guess so", "Sounds good", "That works",
+      "Why not", "Of course", "For sure",
+      "Go ahead", "Do it", "Add it", "Let's do that",
+      "Let's add that", "Please add it", "Put it on my list",
+      "Yeah, I think that would help", "I suppose so", "Okay, let's do it",
+      "Yes, I want that", "That's fine with me", "Sounds good to me",
+      "Yes, let's add that.", "Yes, add it to my list.", "Sure, go ahead.",
+      "Absolutely.", "That sounds good.", "Let's do it.", "Please add that.",
+      "Yes, please.", "Yes, let's add call dentist to my list.",
+      "Please add Call dentist.", "I think that would help.",
+      "Yeah, add it please.", "Well, um, yeah, I think so!",
+      "Uh, yes, please.",
+      "Yes i think i want to add it", "Yah, I think so",
     ];
 
     for (const reply of affirmativeReplies) {
       frontend.context.testReply = reply;
       assert.equal(
-        frontend.run("isClearAffirmative(testReply, 'Call dentist')"),
-        true,
+        frontend.run("getConfirmationIntent(testReply, 'Call dentist')"),
+        "affirmative",
         `Expected affirmative reply: ${reply}`,
       );
     }
 
     for (const reply of [
-      "maybe", "not sure", "I don't know", "perhaps later",
-      "that might help", "I think maybe", "we'll see",
+      "maybe", "I'm not sure", "I don't know", "perhaps later",
+      "we'll see", "not yet", "that might help", "I think maybe",
+      "No, maybe later",
     ]) {
       frontend.context.testReply = reply;
       assert.equal(
-        frontend.run("isClearAffirmative(testReply, 'Call dentist')"),
-        false,
+        frontend.run("getConfirmationIntent(testReply, 'Call dentist')"),
+        "ambiguous",
         `Expected ambiguous reply: ${reply}`,
       );
     }
 
+    for (const reply of [
+      "No", "No, thanks", "Nah", "Please don't add it.",
+      "I don't want to add it", "Not right now", "Let's not.",
+    ]) {
+      frontend.context.testReply = reply;
+      assert.equal(
+        frontend.run("getConfirmationIntent(testReply, 'Call dentist')"),
+        "declined",
+        `Expected declined reply: ${reply}`,
+      );
+    }
+
+    frontend.context.testReply = "Yes, but don't add it.";
+    assert.equal(frontend.run("getConfirmationIntent(testReply, 'Call dentist')"), "declined");
     frontend.context.testReply = "Yes, add mow lawn to my list.";
-    assert.equal(frontend.run("isClearAffirmative(testReply, 'Call dentist')"), false);
+    assert.equal(frontend.run("getConfirmationIntent(testReply, 'Call dentist')"), "ambiguous");
+    frontend.context.testReply = "Yes, please.";
+    assert.equal(frontend.run("getConfirmationIntent(testReply, '')"), "ambiguous");
   });
 
   it("accepts the two reported natural replies for the pending task", () => {
@@ -238,13 +257,35 @@ describe("Brain Dump task confirmation flow", () => {
     assert.match(result.text, /Would you like me to add.*Call dentist.*My List\?/);
   });
 
+  it("does not let an add marker bypass confirmation or target a different task", () => {
+    const frontend = createFrontend();
+    setMessages(frontend, [
+      {
+        role: "assistant",
+        text: "Would you like me to add Call dentist?",
+        taskConfirmation: { status: "pending", title: "Call dentist" }
+      },
+      { role: "user", text: "Yes, add mow lawn to my list." }
+    ]);
+
+    const mismatchedTask = frontend.evaluateReply("[ADD_TASK: Mow lawn]");
+    assert.equal(mismatchedTask.taskAction, null);
+    assert.deepEqual(frontend.getTasks(), []);
+    assert.match(mismatchedTask.text, /Would you like me to add.*Call dentist.*My List\?/);
+
+    setMessages(frontend, [{ role: "user", text: "Yes, please." }]);
+    const noPendingTask = frontend.evaluateReply("[ADD_TASK: Call dentist]");
+    assert.equal(noPendingTask.taskAction, null);
+    assert.deepEqual(frontend.getTasks(), []);
+  });
+
   it("records declines and suppresses repeated confirmation requests in that conversation", () => {
     const frontend = createFrontend();
-    assert.equal(frontend.run("isClearAffirmative('Yes, please.')"), true);
-    assert.equal(frontend.run("isClearDecline('No, thanks.')"), true);
-    assert.equal(frontend.run("isClearDecline(\"Please don't add it.\")"), true);
-    assert.equal(frontend.run("isClearAffirmative('I guess maybe.')"), false);
-    assert.equal(frontend.run("isClearDecline('I guess maybe.')"), false);
+    assert.equal(frontend.run("isClearAffirmative('Yes, please.', 'Book appointment')"), true);
+    assert.equal(frontend.run("isClearDecline('No, thanks.', 'Book appointment')"), true);
+    assert.equal(frontend.run("isClearDecline(\"Please don't add it.\", 'Book appointment')"), true);
+    assert.equal(frontend.run("isClearAffirmative('I guess maybe.', 'Book appointment')"), false);
+    assert.equal(frontend.run("isClearDecline('I guess maybe.', 'Book appointment')"), false);
     setMessages(frontend, [
       {
         role: "assistant",
@@ -295,6 +336,17 @@ describe("Brain Dump task confirmation flow", () => {
     const duplicate = frontend.evaluateReply("[ADD_TASK: book   appointment]");
     assert.equal(duplicate.taskAction, null);
     assert.equal(frontend.getTasks().length, 1);
+  });
+
+  it("preserves Undo for an AI-added task", () => {
+    const frontend = createFrontend();
+    frontend.run(`state.tasks = [{
+      id: 1, title: "Call dentist", category: "", kind: "regular", due: "", done: false
+    }]; state.activeFocusTaskId = 1; render = () => {}; undoAIAddedTask(1);`);
+
+    assert.deepEqual(frontend.getTasks(), []);
+    assert.equal(frontend.run("state.activeFocusTaskId"), null);
+    assert.deepEqual(JSON.parse(frontend.storage.get("cm_tasks_v2")), []);
   });
 
   it("preserves task completion without creating a task", () => {

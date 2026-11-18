@@ -1351,42 +1351,87 @@ function normalizeTaskTitle(title) {
 }
 
 function normalizeConfirmationReply(text) {
-  return typeof text === "string"
-    ? text.toLowerCase().replace(/[’]/g, "'").replace(/[.,!?;:]/g, " ").replace(/\s+/g, " ").trim()
-    : "";
+  if (typeof text !== "string") return "";
+  return text.toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/\bmm-hmm\b/g, "mmhmm")
+    .replace(/\buh[\s-]+huh\b/g, "uhhuh")
+    .replace(/\blet's\b/g, "lets")
+    .replace(/\bthat's\b/g, "that is")
+    .replace(/\bwe'll\b/g, "we will")
+    .replace(/\bi'm\b/g, "i am")
+    .replace(/\bi'd\b/g, "i would")
+    .replace(/\bdon't\b/g, "do not")
+    .replace(/\bdoesn't\b/g, "does not")
+    .replace(/\bcan't\b/g, "cannot")
+    .replace(/\bwon't\b/g, "will not")
+    .replace(/\bwouldn't\b/g, "would not")
+    .replace(/\bshouldn't\b/g, "should not")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(?:um+|uh+|well|you know)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function isClearAffirmative(text, pendingTitle = "") {
+function getConfirmationIntent(text, pendingTitle) {
+  const expectedTitle = normalizeConfirmationReply(pendingTitle);
+  if (!expectedTitle) return "ambiguous";
+
   const normalized = normalizeConfirmationReply(text);
-  if (new Set([
-    "yes", "yes please", "yes please do", "yep", "yep please", "yeah", "yeah please",
-    "yeah i think so", "sure", "sure please", "sure go ahead", "absolutely", "definitely",
-    "go ahead", "yes go ahead", "please do",
-    "add it", "please add it", "that sounds good", "that would be good",
-    "i think that would help", "sounds good to me",
-    "okay", "okay please", "okay let's do it", "okay lets do it", "ok", "ok please", "let's do it", "lets do it",
-    "you can add it", "i'd like that", "i would like that"
-  ]).has(normalized)) return true;
+  if (!normalized) return "ambiguous";
 
-  const addRequest = normalized.match(
-    /^(?:(?:yes|yep|yeah|sure|absolutely|definitely|okay|ok)\s+)?(?:(?:i think\s+)?i want to\s+)?(?:please\s+)?(?:(?:let's|lets)\s+)?(?:add|put)\s+(.+?)(?:\s+to\s+(?:my|the)\s+list)?(?:\s+please)?$/
-  );
-  if (!addRequest) return false;
+  const uncertain = /\b(?:maybe|perhaps|not sure|unsure|uncertain|do not know|no idea|not yet|we will see)\b/.test(normalized);
+  if (uncertain) return "ambiguous";
 
-  const requestedTitle = addRequest[1].trim();
-  if (requestedTitle === "that" || requestedTitle === "it") return true;
-  return Boolean(pendingTitle) &&
-    requestedTitle === normalizeConfirmationReply(pendingTitle);
+  const declined =
+    /^(?:no|nope|nah)\b/.test(normalized) ||
+    /^(?:not now|not right now|not this time|lets not|i do not think so|i would rather not|i changed my mind)\b/.test(normalized) ||
+    /\b(?:do not|never)\s+(?:add|put|include)\b/.test(normalized) ||
+    /\b(?:do not want|would rather not)\b/.test(normalized) ||
+    /\b(?:please do not|leave it off|not interested)\b/.test(normalized);
+
+  const affirmativeLead = "yes|yeah|yah|yea|yep|yup|yeh|ya|sure|certainly|absolutely|definitely|okay|ok";
+  const agreementPhrases = [
+    affirmativeLead, "mhm", "mmhmm", "mm hmm", "uhhuh", "so",
+    "(?:that )?sounds good(?: to me)?", "that works(?: for me)?", "that is fine with me",
+    "(?:that )?(?:would|will) help", "why not", "of course", "for sure",
+    "go ahead", "do it", "please do", "i want that", "i would like that",
+    "lets do (?:it|that)",
+  ].join("|");
+  const agreementPattern = new RegExp([
+    "^", `(?:(?:${affirmativeLead})\\s+)?`,
+    "(?:(?:i think|i guess|i suppose)\\s+)?",
+    `(?:${agreementPhrases})`,
+    "(?:\\s+(?:please|thanks|thank you))?$",
+  ].join(""));
+  const agreement = agreementPattern.test(normalized);
+
+  const addRequestPattern = new RegExp([
+    "^", `(?:(?:${affirmativeLead}|okay|ok)\\s+)?`,
+    "(?:(?:i think|i guess|i suppose)\\s+)?",
+    "(?:(?:i want to|i would like to)\\s+)?",
+    "(?:please\\s+)?(?:lets\\s+)?(?:add|put|include)\\s+",
+    "(.+?)(?:\\s+(?:to|on|in)\\s+(?:my|the)\\s+list)?(?:\\s+please)?$",
+  ].join(""));
+  const addRequest = normalized.match(addRequestPattern);
+  let actionAgreement = false;
+  if (addRequest) {
+    const requestedTitle = addRequest[1].trim();
+    actionAgreement = ["it", "that", "this"].includes(requestedTitle) ||
+      requestedTitle === expectedTitle;
+  }
+
+  const affirmative = agreement || actionAgreement;
+  if (declined) return "declined";
+  return affirmative ? "affirmative" : "ambiguous";
 }
 
-function isClearDecline(text) {
-  return new Set([
-    "no", "nope", "nah", "no thanks", "no thank you", "no not this time", "no not right now",
-    "not now", "not yet", "i don't think so", "i do not think so", "i'd rather not", "i would rather not",
-    "let's not", "lets not", "please don't add it",
-    "please don't", "don't add it", "do not add it", "leave it off",
-    "i don't want to add it", "i do not want to add it", "i changed my mind"
-  ]).has(normalizeConfirmationReply(text));
+function isClearAffirmative(text, pendingTitle) {
+  return getConfirmationIntent(text, pendingTitle) === "affirmative";
+}
+
+function isClearDecline(text, pendingTitle) {
+  return getConfirmationIntent(text, pendingTitle) === "declined";
 }
 
 function hasExplicitTaskConfirmationQuestion(text) {
@@ -1614,7 +1659,7 @@ async function sendAIMessage(event) {
   let taskConfirmation;
   if (pendingConfirmation && isClearAffirmative(text, pendingConfirmation.title)) {
     taskConfirmation = { status: "confirmed", title: pendingConfirmation.title };
-  } else if (pendingConfirmation && isClearDecline(text)) {
+  } else if (pendingConfirmation && isClearDecline(text, pendingConfirmation.title)) {
     taskConfirmation = { status: "declined", title: pendingConfirmation.title };
   }
   state.aiMessages = [...state.aiMessages, {
