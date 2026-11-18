@@ -177,6 +177,40 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
     assert.deepEqual(await result.json(), { reply: "Fallback from choices." });
   });
 
+  it("supports OpenAI-compatible choice message content arrays", async () => {
+    const env = makeEnv({
+      choices: [{
+        message: {
+          content: [
+            { type: "text", text: "Part one." },
+            { type: "text", text: "Part two." },
+          ],
+        },
+      }],
+    });
+    const result = await worker.fetch(makeRequest({ thoughtText: "hi", messages: [] }), env);
+    assert.equal(result.status, 200);
+    assert.deepEqual(await result.json(), { reply: "Part one.\nPart two." });
+  });
+
+  it("supports output_text and top-level text response formats", async () => {
+    const outputTextEnv = makeEnv({ output_text: "Supported output text." });
+    const outputTextResult = await worker.fetch(
+      makeRequest({ thoughtText: "hi", messages: [] }),
+      outputTextEnv,
+    );
+    assert.equal(outputTextResult.status, 200);
+    assert.deepEqual(await outputTextResult.json(), { reply: "Supported output text." });
+
+    const textEnv = makeEnv({ text: "Supported text." });
+    const textResult = await worker.fetch(
+      makeRequest({ thoughtText: "hi", messages: [] }),
+      textEnv,
+    );
+    assert.equal(textResult.status, 200);
+    assert.deepEqual(await textResult.json(), { reply: "Supported text." });
+  });
+
   it("uses the result.response response fallback", async () => {
     const env = makeEnv({ result: { response: "Fallback from result." } });
     const result = await worker.fetch(makeRequest({ thoughtText: "hi", messages: [] }), env);
@@ -251,6 +285,10 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
       assert.equal(result.status, 502);
       assert.equal(runOptions.max_completion_tokens, 1000);
       assert.equal(Object.hasOwn(runOptions, "max_tokens"), false);
+      assert.deepEqual(runOptions.chat_template_kwargs, {
+        enable_thinking: false,
+        clear_thinking: true,
+      });
     } finally {
       console.error = originalConsoleError;
     }
@@ -258,15 +296,20 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
     assert.deepEqual(logs, [[
       "Workers AI returned no recognized reply",
       {
+        resultIsObject: true,
+        topLevelKeys: ["choices"],
         choicesIsArray: true,
         choicesLength: 1,
-        choice0Exists: true,
-        choice0Keys: ["id", "finish_reason", "message"],
-        messageKeys: ["role", "content", "reasoning_content", "privateData"],
-        contentType: "string",
-        contentIsNull: false,
-        contentIsBlank: true,
-        finish_reason: "length",
+        choice: {
+          choiceKeys: ["id", "finish_reason", "message"],
+          messageKeys: ["role", "content", "reasoning_content", "privateData"],
+          contentType: "string",
+          contentIsBlank: true,
+          finishReason: "length",
+        },
+        nestedChoicesIsArray: false,
+        nestedChoicesLength: null,
+        nestedChoice: null,
       },
     ]]);
     const serializedLogs = JSON.stringify(logs);

@@ -138,6 +138,96 @@ function validatePayload(payload, env) {
   };
 }
 
+function extractText(value) {
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) {
+    return value
+      .map(item => extractText(item))
+      .filter(Boolean)
+      .join("\n");
+  }
+  if (!value || typeof value !== "object") return "";
+  if (typeof value.text === "string" && value.text.trim()) return value.text.trim();
+  if (typeof value.content === "string" && value.content.trim()) return value.content.trim();
+  return "";
+}
+
+function extractAIReply(aiResult) {
+  if (!aiResult || typeof aiResult !== "object") return "";
+
+  const candidates = [
+    aiResult.response,
+    aiResult.output_text,
+    aiResult.text,
+    aiResult.content,
+  ];
+
+  if (Array.isArray(aiResult.choices)) {
+    for (const choice of aiResult.choices) {
+      candidates.push(choice?.text);
+      candidates.push(choice?.message?.content);
+      candidates.push(choice?.message?.text);
+      candidates.push(choice?.content);
+    }
+  }
+
+  if (aiResult.result && typeof aiResult.result === "object") {
+    candidates.push(
+      aiResult.result.response,
+      aiResult.result.output_text,
+      aiResult.result.text,
+      aiResult.result.content,
+    );
+    if (Array.isArray(aiResult.result.choices)) {
+      for (const choice of aiResult.result.choices) {
+        candidates.push(choice?.text);
+        candidates.push(choice?.message?.content);
+        candidates.push(choice?.message?.text);
+        candidates.push(choice?.content);
+      }
+    }
+  }
+
+  for (const candidate of candidates) {
+    const text = extractText(candidate);
+    if (text) return text;
+  }
+  return "";
+}
+
+function summarizeAIResult(aiResult) {
+  const choices = aiResult?.choices;
+  const firstChoice = Array.isArray(choices) ? choices[0] : undefined;
+  const resultChoices = aiResult?.result?.choices;
+  const firstResultChoice = Array.isArray(resultChoices) ? resultChoices[0] : undefined;
+  const firstMessage = firstChoice?.message;
+  const firstResultMessage = firstResultChoice?.message;
+
+  const summarizeChoice = (choice, message) => {
+    if (!choice || typeof choice !== "object") return null;
+    return {
+      choiceKeys: Object.keys(choice),
+      messageKeys: message && typeof message === "object" ? Object.keys(message) : [],
+      contentType: typeof message?.content,
+      contentIsBlank: typeof message?.content === "string"
+        ? message.content.trim().length === 0
+        : null,
+      finishReason: typeof choice.finish_reason === "string" ? choice.finish_reason : null,
+    };
+  };
+
+  return {
+    resultIsObject: aiResult !== null && typeof aiResult === "object",
+    topLevelKeys: aiResult && typeof aiResult === "object" ? Object.keys(aiResult) : [],
+    choicesIsArray: Array.isArray(choices),
+    choicesLength: Array.isArray(choices) ? choices.length : null,
+    choice: summarizeChoice(firstChoice, firstMessage),
+    nestedChoicesIsArray: Array.isArray(resultChoices),
+    nestedChoicesLength: Array.isArray(resultChoices) ? resultChoices.length : null,
+    nestedChoice: summarizeChoice(firstResultChoice, firstResultMessage),
+  };
+}
+
 export default {
   async fetch(request, env) {
     const allowedOrigins = (env.ALLOWED_ORIGINS || "")
@@ -193,6 +283,10 @@ export default {
         : SYSTEM_PROMPT;
       aiResult = await env.AI.run(model, {
         max_completion_tokens: 1000,
+        chat_template_kwargs: {
+          enable_thinking: false,
+          clear_thinking: true,
+        },
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Selected thought (the only Brain Dump context):\n${validated.value.thoughtText}` },
@@ -208,35 +302,11 @@ export default {
       return response(502, { error: "Could not reach the AI service. Please retry." }, corsHeaders);
     }
 
-    const reply = [
-      aiResult?.response,
-      aiResult?.choices?.[0]?.message?.content,
-      aiResult?.result?.response,
-      aiResult?.result?.choices?.[0]?.message?.content,
-    ].find(value => typeof value === "string" && value.trim());
-    if (typeof reply !== "string") {
-      const choices = aiResult?.choices;
-      const firstChoice = Array.isArray(choices) ? choices[0] : undefined;
-      const message = firstChoice?.message;
-      const content = message?.content;
-      const firstChoiceIsObject = firstChoice !== null && typeof firstChoice === "object";
-      const messageIsObject = message !== null && typeof message === "object";
-      const diagnostics = {
-        choicesIsArray: Array.isArray(choices),
-        choicesLength: Array.isArray(choices) ? choices.length : null,
-        choice0Exists: firstChoice !== undefined && firstChoice !== null,
-        choice0Keys: firstChoiceIsObject ? Object.keys(firstChoice) : [],
-        messageKeys: messageIsObject ? Object.keys(message) : [],
-        contentType: typeof content,
-        contentIsNull: content === null,
-        contentIsBlank: typeof content === "string" ? content.trim().length === 0 : null,
-      };
-      if (firstChoiceIsObject && "finish_reason" in firstChoice) {
-        diagnostics.finish_reason = firstChoice.finish_reason;
-      }
-      console.error("Workers AI returned no recognized reply", diagnostics);
+    const reply = extractAIReply(aiResult);
+    if (!reply) {
+      console.error("Workers AI returned no recognized reply", summarizeAIResult(aiResult));
       return response(502, { error: "The AI service returned no reply. Please retry." }, corsHeaders);
     }
-    return response(200, { reply: reply.trim() }, corsHeaders);
+    return response(200, { reply }, corsHeaders);
   },
 };
