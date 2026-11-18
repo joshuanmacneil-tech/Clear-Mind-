@@ -1360,14 +1360,16 @@ function isClearAffirmative(text, pendingTitle = "") {
   const normalized = normalizeConfirmationReply(text);
   if (new Set([
     "yes", "yes please", "yes please do", "yep", "yep please", "yeah", "yeah please",
-    "sure", "sure please", "sure go ahead", "absolutely", "definitely", "go ahead", "yes go ahead", "please do",
+    "yeah i think so", "sure", "sure please", "sure go ahead", "absolutely", "definitely",
+    "go ahead", "yes go ahead", "please do",
     "add it", "please add it", "that sounds good", "that would be good",
-    "okay", "okay please", "ok", "ok please", "let's do it", "lets do it",
+    "i think that would help", "sounds good to me",
+    "okay", "okay please", "okay let's do it", "okay lets do it", "ok", "ok please", "let's do it", "lets do it",
     "you can add it", "i'd like that", "i would like that"
   ]).has(normalized)) return true;
 
   const addRequest = normalized.match(
-    /^(?:(?:yes|yep|yeah|sure|absolutely|definitely|okay|ok)\s+)?(?:please\s+)?(?:(?:let's|lets)\s+)?(?:add|put)\s+(.+?)(?:\s+to\s+(?:my|the)\s+list)?(?:\s+please)?$/
+    /^(?:(?:yes|yep|yeah|sure|absolutely|definitely|okay|ok)\s+)?(?:(?:i think\s+)?i want to\s+)?(?:please\s+)?(?:(?:let's|lets)\s+)?(?:add|put)\s+(.+?)(?:\s+to\s+(?:my|the)\s+list)?(?:\s+please)?$/
   );
   if (!addRequest) return false;
 

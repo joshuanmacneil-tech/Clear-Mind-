@@ -109,7 +109,7 @@ describe("Brain Dump task confirmation flow", () => {
     assert.deepEqual(frontend.getTasks(), []);
   });
 
-  it("keeps confirmation pending for an affirmative phrase it does not recognize", () => {
+  it("keeps confirmation pending for an ambiguous phrase", () => {
     const frontend = createFrontend();
     setMessages(frontend, [
       {
@@ -117,10 +117,13 @@ describe("Brain Dump task confirmation flow", () => {
         text: "Would you like me to add Book appointment to My List?",
         taskConfirmation: { status: "pending", title: "Book appointment" }
       },
-      { role: "user", text: "Yes, I think that would help." }
+      { role: "user", text: "Maybe that might help." }
     ]);
 
-    assert.equal(frontend.run("isClearAffirmative(state.aiMessages.at(-1).text)"), false);
+    assert.equal(
+      frontend.run("isClearAffirmative(state.aiMessages.at(-1).text, 'Book appointment')"),
+      false,
+    );
     const result = frontend.evaluateReply("[ADD_TASK: Book appointment]");
 
     assert.match(result.text, /Would you like me to add.*Book appointment.*My List\?/);
@@ -141,6 +144,10 @@ describe("Brain Dump task confirmation flow", () => {
       "Yes, please.",
       "Yes, let's add call dentist to my list.",
       "Please add Call dentist.",
+      "I think that would help.",
+      "Okay, let's do it.",
+      "Yeah, add it please.",
+      "Sounds good to me.",
     ];
 
     for (const reply of affirmativeReplies) {
@@ -152,7 +159,10 @@ describe("Brain Dump task confirmation flow", () => {
       );
     }
 
-    for (const reply of ["maybe", "I think so", "that might help", "we'll see"]) {
+    for (const reply of [
+      "maybe", "not sure", "I don't know", "perhaps later",
+      "that might help", "I think maybe", "we'll see",
+    ]) {
       frontend.context.testReply = reply;
       assert.equal(
         frontend.run("isClearAffirmative(testReply, 'Call dentist')"),
@@ -163,6 +173,29 @@ describe("Brain Dump task confirmation flow", () => {
 
     frontend.context.testReply = "Yes, add mow lawn to my list.";
     assert.equal(frontend.run("isClearAffirmative(testReply, 'Call dentist')"), false);
+  });
+
+  it("accepts the two reported natural replies for the pending task", () => {
+    for (const reply of ["Yes i think i want to add it", "yeah i think so"]) {
+      const frontend = createFrontend();
+      setMessages(frontend, [
+        {
+          role: "assistant",
+          text: "Would you like me to add Find dentist's number to My List?",
+          taskConfirmation: { status: "pending", title: "Find dentist's number" }
+        },
+        {
+          role: "user",
+          text: reply,
+          taskConfirmation: { status: "confirmed", title: "Find dentist's number" }
+        }
+      ]);
+
+      const result = frontend.evaluateReply("[ADD_TASK: Find dentist's number]");
+      assert.equal(result.taskAction.type, "added", reply);
+      assert.equal(result.taskAction.title, "Find dentist's number");
+      assert.equal(frontend.getTasks().length, 1);
+    }
   });
 
   it("adds only the task named by the immediately preceding pending confirmation", () => {
@@ -209,6 +242,7 @@ describe("Brain Dump task confirmation flow", () => {
     const frontend = createFrontend();
     assert.equal(frontend.run("isClearAffirmative('Yes, please.')"), true);
     assert.equal(frontend.run("isClearDecline('No, thanks.')"), true);
+    assert.equal(frontend.run("isClearDecline(\"Please don't add it.\")"), true);
     assert.equal(frontend.run("isClearAffirmative('I guess maybe.')"), false);
     assert.equal(frontend.run("isClearDecline('I guess maybe.')"), false);
     setMessages(frontend, [
