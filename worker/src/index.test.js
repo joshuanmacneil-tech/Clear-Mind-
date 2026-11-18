@@ -221,14 +221,21 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
     assert.equal(JSON.stringify(logs).includes("Private thought text"), false);
   });
 
-  it("logs only the model and top-level response keys when no reply is recognized", async () => {
+  it("logs reply structure without exposing response or conversation content", async () => {
     const logs = [];
     const originalConsoleError = console.error;
     console.error = (...args) => logs.push(args);
     try {
       const env = makeEnv({
-        diagnostic: "Private response content",
-        response: "",
+        choices: [{
+          id: "Private choice content",
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: " \t\n ",
+            privateData: "Private response content",
+          },
+        }],
       });
       const result = await worker.fetch(makeRequest({
         thoughtText: "Private thought text",
@@ -243,13 +250,21 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
     assert.deepEqual(logs, [[
       "Workers AI returned no recognized reply",
       {
-        model: "@cf/google/gemma-4-26b-a4b-it",
-        responseKeys: ["diagnostic", "response"],
+        choicesIsArray: true,
+        choicesLength: 1,
+        choice0Exists: true,
+        choice0Keys: ["id", "finish_reason", "message"],
+        messageKeys: ["role", "content", "privateData"],
+        contentType: "string",
+        contentIsNull: false,
+        contentIsBlank: true,
+        finish_reason: "stop",
       },
     ]]);
     const serializedLogs = JSON.stringify(logs);
     assert.equal(serializedLogs.includes("Private thought text"), false);
     assert.equal(serializedLogs.includes("private chat"), false);
+    assert.equal(serializedLogs.includes("Private choice content"), false);
     assert.equal(serializedLogs.includes("Private response content"), false);
   });
 

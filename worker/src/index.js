@@ -215,8 +215,26 @@ export default {
       aiResult?.result?.choices?.[0]?.message?.content,
     ].find(value => typeof value === "string" && value.trim());
     if (typeof reply !== "string") {
-      const responseKeys = aiResult && typeof aiResult === "object" ? Object.keys(aiResult) : [];
-      console.error("Workers AI returned no recognized reply", { model, responseKeys });
+      const choices = aiResult?.choices;
+      const firstChoice = Array.isArray(choices) ? choices[0] : undefined;
+      const message = firstChoice?.message;
+      const content = message?.content;
+      const firstChoiceIsObject = firstChoice !== null && typeof firstChoice === "object";
+      const messageIsObject = message !== null && typeof message === "object";
+      const diagnostics = {
+        choicesIsArray: Array.isArray(choices),
+        choicesLength: Array.isArray(choices) ? choices.length : null,
+        choice0Exists: firstChoice !== undefined && firstChoice !== null,
+        choice0Keys: firstChoiceIsObject ? Object.keys(firstChoice) : [],
+        messageKeys: messageIsObject ? Object.keys(message) : [],
+        contentType: typeof content,
+        contentIsNull: content === null,
+        contentIsBlank: typeof content === "string" ? content.trim().length === 0 : null,
+      };
+      if (firstChoiceIsObject && "finish_reason" in firstChoice) {
+        diagnostics.finish_reason = firstChoice.finish_reason;
+      }
+      console.error("Workers AI returned no recognized reply", diagnostics);
       return response(502, { error: "The AI service returned no reply. Please retry." }, corsHeaders);
     }
     return response(200, { reply: reply.trim() }, corsHeaders);
