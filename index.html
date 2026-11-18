@@ -1157,16 +1157,21 @@ function loadAIConversation(thoughtId) {
     return Array.isArray(saved)
       ? saved.filter((message) => message && (message.role === "user" || message.role === "assistant") && typeof message.text === "string")
         .map((message) => {
-          if (!message.taskAction || typeof message.taskAction !== "object") return message;
-          const { type, taskId, title, focusAssigned } = message.taskAction;
-          if ((type !== "added" && type !== "completed") || !Number.isSafeInteger(taskId) || typeof title !== "string") {
-            return { role: message.role, text: message.text };
+          const restored = { role: message.role, text: message.text };
+          if (message.taskAction && typeof message.taskAction === "object") {
+            const { type, taskId, title, focusAssigned } = message.taskAction;
+            if ((type === "added" || type === "completed") && Number.isSafeInteger(taskId) && typeof title === "string") {
+              restored.taskAction = { type, taskId, title, focusAssigned: type === "added" && focusAssigned === true };
+            }
           }
-          return {
-            role: message.role,
-            text: message.text,
-            taskAction: { type, taskId, title, focusAssigned: type === "added" && focusAssigned === true }
-          };
+          if (message.taskConfirmation && typeof message.taskConfirmation === "object") {
+            const { status, title } = message.taskConfirmation;
+            if (["pending", "confirmed", "declined", "consumed"].includes(status) &&
+                typeof title === "string" && title.trim()) {
+              restored.taskConfirmation = { status, title: title.trim().replace(/\s+/g, " ") };
+            }
+          }
+          return restored;
         })
       : [];
   } catch (error) {
@@ -1287,15 +1292,24 @@ async function requestAIReply(thoughtId, messages) {
       },
       body: JSON.stringify({
         thoughtText: thought.text,
+        declinedTasks: getDeclinedTaskTitles(messages),
         messages: messages
           .filter((message, index) => !(index === 0 && message.role === "user" && message.text === thought.text))
           .slice(-10)
-          .map((message) => ({
-            role: message.role,
-            text: `${message.text}${message.role === "assistant" && message.taskAction
-              ? `\n[${message.taskAction.type === "added" ? "ADD_TASK" : "COMPLETE_TASK"}: ${message.taskAction.title}]`
-              : ""}`
-          }))
+          .map((message) => {
+            let text = message.text;
+            if (message.role === "assistant" && message.taskAction) {
+              text += `\n[${message.taskAction.type === "added" ? "ADD_TASK" : "COMPLETE_TASK"}: ${message.taskAction.title}]`;
+            }
+            if (message.taskConfirmation) {
+              const { status, title } = message.taskConfirmation;
+              if (status === "pending") text += `\n[CONFIRM_TASK: ${title}]`;
+              if (status === "confirmed") text += `\n[TASK_CONFIRMATION_ACCEPTED: ${title}]`;
+              if (status === "declined") text += `\n[DECLINED_TASK: ${title}]`;
+              if (status === "consumed") text += `\n[TASK_CONFIRMATION_CONSUMED: ${title}]`;
+            }
+            return { role: message.role, text };
+          })
       })
     });
 
@@ -1311,11 +1325,12 @@ async function requestAIReply(thoughtId, messages) {
       throw new Error("Empty AI response");
     }
 
-    const processedReply = processAIActionTags(reply);
+    const processedReply = processAIActionTags(reply, messages);
     const nextMessages = [...messages, {
       role: "assistant",
       text: processedReply.text,
-      ...(processedReply.taskAction ? { taskAction: processedReply.taskAction } : {})
+      ...(processedReply.taskAction ? { taskAction: processedReply.taskAction } : {}),
+      ...(processedReply.taskConfirmation ? { taskConfirmation: processedReply.taskConfirmation } : {})
     }];
     if (processedReply.tasksChanged) saveState();
     saveAIConversation(thoughtId, nextMessages);
@@ -1333,6 +1348,68 @@ async function requestAIReply(thoughtId, messages) {
 
 function normalizeTaskTitle(title) {
   return typeof title === "string" ? title.trim().replace(/\s+/g, " ").toLowerCase() : "";
+}
+
+function normalizeConfirmationReply(text) {
+  return typeof text === "string"
+    ? text.toLowerCase().replace(/[’]/g, "'").replace(/[.,!?;:]/g, " ").replace(/\s+/g, " ").trim()
+    : "";
+}
+
+function isClearAffirmative(text) {
+  return new Set([
+    "yes", "yes please", "yes please do", "yep", "yep please", "yeah", "yeah please",
+    "sure", "sure please", "absolutely", "definitely", "go ahead", "yes go ahead", "please do",
+    "add it", "please add it", "that sounds good", "that would be good",
+    "okay", "okay please", "ok", "ok please", "let's do it", "lets do it",
+    "you can add it", "i'd like that", "i would like that"
+  ]).has(normalizeConfirmationReply(text));
+}
+
+function isClearDecline(text) {
+  return new Set([
+    "no", "nope", "nah", "no thanks", "no thank you", "no not this time", "no not right now",
+    "not now", "not yet", "i don't think so", "i do not think so", "i'd rather not", "i would rather not",
+    "let's not", "lets not", "please don't add it",
+    "please don't", "don't add it", "do not add it", "leave it off",
+    "i don't want to add it", "i do not want to add it", "i changed my mind"
+  ]).has(normalizeConfirmationReply(text));
+}
+
+function hasExplicitTaskConfirmationQuestion(text) {
+  return /\b(?:would you like|do you want|should i|shall i|want me to)\b[\s\S]{0,180}\b(?:add|added|put|include)\b[\s\S]{0,180}\b(?:my list|your list)\b/i.test(text);
+}
+
+function getPendingTaskConfirmation(messages) {
+  if (!Array.isArray(messages) || !messages.length) return null;
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage.role !== "assistant" || lastMessage.taskConfirmation?.status !== "pending") return null;
+  const title = lastMessage.taskConfirmation.title;
+  return typeof title === "string" && title.trim() ? { title } : null;
+}
+
+function getPendingTaskConfirmationForReply(messages) {
+  if (!Array.isArray(messages) || messages.length < 2) return null;
+  const userMessage = messages[messages.length - 1];
+  const assistantMessage = messages[messages.length - 2];
+  if (userMessage.role !== "user" || assistantMessage.role !== "assistant" ||
+      assistantMessage.taskConfirmation?.status !== "pending") {
+    return null;
+  }
+  const title = assistantMessage.taskConfirmation.title;
+  return typeof title === "string" && title.trim() ? { title, userMessage } : null;
+}
+
+function getDeclinedTaskTitles(messages) {
+  if (!Array.isArray(messages)) return [];
+  const titlesByNormalizedName = new Map();
+  for (const message of messages) {
+    if (message?.taskConfirmation?.status !== "declined") continue;
+    const title = message.taskConfirmation.title;
+    const normalizedTitle = normalizeTaskTitle(title);
+    if (normalizedTitle) titlesByNormalizedName.set(normalizedTitle, title.trim().replace(/\s+/g, " "));
+  }
+  return [...titlesByNormalizedName.values()].slice(-100);
 }
 
 function addTaskFromAI(title) {
@@ -1366,8 +1443,8 @@ function completeTaskFromAI(title) {
   return task;
 }
 
-function processAIActionTags(reply) {
-  const tagPattern = /\[(ADD_TASK|COMPLETE_TASK):\s*([^\]\r\n]{1,120})\s*\]/gi;
+function processAIActionTags(reply, messages = []) {
+  const tagPattern = /\[(ADD_TASK|COMPLETE_TASK|CONFIRM_TASK|CANCEL_TASK):\s*([^\]\r\n]{1,120})\s*\]/gi;
   const matches = [...reply.matchAll(tagPattern)];
   const text = reply.replace(tagPattern, "").trim();
   for (const match of matches) {
@@ -1375,7 +1452,98 @@ function processAIActionTags(reply) {
     const title = match[2].trim().replace(/\s+/g, " ");
     if (!title) continue;
 
+    if (type === "CONFIRM_TASK") {
+      const normalizedTitle = normalizeTaskTitle(title);
+      if (getDeclinedTaskTitles(messages).some((declinedTitle) => normalizeTaskTitle(declinedTitle) === normalizedTitle)) {
+        return {
+          text: "Understood — I’ll leave that off your list. We can focus on something else whenever you’re ready.",
+          tasksChanged: false,
+          taskAction: null,
+          taskConfirmation: null
+        };
+      }
+      if (state.tasks.some((task) => normalizeTaskTitle(task.title) === normalizedTitle)) {
+        return {
+          text: `“${title}” is already on your list, so I won’t ask you to add it again.`,
+          tasksChanged: false,
+          taskAction: null,
+          taskConfirmation: null
+        };
+      }
+      return {
+        text: hasExplicitTaskConfirmationQuestion(text)
+          ? text
+          : `${text}${text ? "\n\n" : ""}Would you like me to add “${title}” to My List?`,
+        tasksChanged: false,
+        taskAction: null,
+        taskConfirmation: { status: "pending", title }
+      };
+    }
+
+    if (type === "CANCEL_TASK") {
+      const pendingConfirmation = getPendingTaskConfirmationForReply(messages);
+      const userConfirmation = pendingConfirmation?.userMessage.taskConfirmation;
+      if (pendingConfirmation &&
+          normalizeTaskTitle(pendingConfirmation.title) === normalizeTaskTitle(title) &&
+          userConfirmation?.status === "declined" &&
+          normalizeTaskTitle(userConfirmation.title) === normalizeTaskTitle(title)) {
+        return {
+          text,
+          tasksChanged: false,
+          taskAction: null,
+          taskConfirmation: { status: "declined", title }
+        };
+      }
+      continue;
+    }
+
     if (type === "ADD_TASK") {
+      const pendingConfirmation = getPendingTaskConfirmationForReply(messages);
+      const userConfirmation = pendingConfirmation?.userMessage.taskConfirmation;
+      const declinedTitle = getDeclinedTaskTitles(messages).find((declined) =>
+        normalizeTaskTitle(declined) === normalizeTaskTitle(title)
+      );
+      if (declinedTitle) {
+        return {
+          text: "Understood — I’ll leave that off your list. We can focus on something else whenever you’re ready.",
+          tasksChanged: false,
+          taskAction: null,
+          taskConfirmation: null
+        };
+      }
+      if (state.tasks.some((task) => normalizeTaskTitle(task.title) === normalizeTaskTitle(title))) {
+        return {
+          text: `“${title}” is already on your list, so I won’t add a duplicate.`,
+          tasksChanged: false,
+          taskAction: null,
+          taskConfirmation: null
+        };
+      }
+      if (userConfirmation?.status === "consumed" &&
+          normalizeTaskTitle(userConfirmation.title) === normalizeTaskTitle(title)) {
+        return {
+          text: `“${title}” was already added to your list.`,
+          tasksChanged: false,
+          taskAction: null,
+          taskConfirmation: null
+        };
+      }
+      const confirmed = pendingConfirmation &&
+        normalizeTaskTitle(pendingConfirmation.title) === normalizeTaskTitle(title) &&
+        userConfirmation?.status === "confirmed" &&
+        normalizeTaskTitle(userConfirmation.title) === normalizeTaskTitle(title) &&
+        isClearAffirmative(pendingConfirmation.userMessage.text);
+      if (!confirmed) {
+        const confirmationTitle = pendingConfirmation?.title || title;
+        return {
+          text: `I want to make sure before adding anything. Would you like me to add “${confirmationTitle}” to your My List?`,
+          tasksChanged: false,
+          taskAction: null,
+          taskConfirmation: { status: "pending", title: confirmationTitle }
+        };
+      }
+
+      pendingConfirmation.userMessage.taskConfirmation.status = "consumed";
       const added = addTaskFromAI(title);
       if (added) {
         return {
@@ -1386,21 +1554,29 @@ function processAIActionTags(reply) {
             taskId: added.task.id,
             title: added.task.title,
             focusAssigned: added.focusAssigned
-          }
+          },
+          taskConfirmation: null
         };
       }
+      return {
+        text: `“${title}” is already on your list, so I haven’t added a duplicate.`,
+        tasksChanged: false,
+        taskAction: null,
+        taskConfirmation: null
+      };
     } else {
       const completed = completeTaskFromAI(title);
       if (completed) {
         return {
           text,
           tasksChanged: true,
-          taskAction: { type: "completed", taskId: completed.id, title: completed.title }
+          taskAction: { type: "completed", taskId: completed.id, title: completed.title },
+          taskConfirmation: null
         };
       }
     }
   }
-  return { text, tasksChanged: false, taskAction: null };
+  return { text, tasksChanged: false, taskAction: null, taskConfirmation: null };
 }
 
 function undoAIAddedTask(id) {
@@ -1421,7 +1597,18 @@ async function sendAIMessage(event) {
   const thought = state.thoughts.find((item) => item.id === thoughtId);
   if (!thought) return;
 
-  state.aiMessages = [...state.aiMessages, { role: "user", text }];
+  const pendingConfirmation = getPendingTaskConfirmation(state.aiMessages);
+  let taskConfirmation;
+  if (pendingConfirmation && isClearAffirmative(text)) {
+    taskConfirmation = { status: "confirmed", title: pendingConfirmation.title };
+  } else if (pendingConfirmation && isClearDecline(text)) {
+    taskConfirmation = { status: "declined", title: pendingConfirmation.title };
+  }
+  state.aiMessages = [...state.aiMessages, {
+    role: "user",
+    text,
+    ...(taskConfirmation ? { taskConfirmation } : {})
+  }];
   saveAIConversation(thoughtId, state.aiMessages);
   $("aiMessage").value = "";
   renderAIConversation();

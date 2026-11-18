@@ -125,10 +125,49 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
     assert.match(runOptions.messages[0].content, /Support the user's own judgment, choices, and confidence/);
     assert.match(runOptions.messages[0].content, /\[ADD_TASK: short actionable task title\]/);
     assert.match(runOptions.messages[0].content, /\[COMPLETE_TASK: exact task title previously identified in this chat\]/);
-    assert.match(runOptions.messages[0].content, /Only do this after the user explicitly agrees/);
+    assert.match(runOptions.messages[0].content, /Before adding any task, ask the user directly/);
+    assert.match(runOptions.messages[0].content, /\[CONFIRM_TASK: short actionable task title\]/);
+    assert.match(runOptions.messages[0].content, /clear, unambiguous affirmative answer to the immediately preceding assistant task-confirmation question/);
+    assert.match(runOptions.messages[0].content, /If the answer is ambiguous, ask for clarification/);
+    assert.match(runOptions.messages[0].content, /do not ask about or suggest adding that declined task again/);
     assert.match(runOptions.messages[1].content, /Selected idea/);
     assert.equal(runOptions.messages[2].content, "Help me sort this");
     assert.equal(JSON.stringify(runOptions).includes("other thought"), false);
+  });
+
+  it("passes declined task titles to the model as persistent conversation context", async () => {
+    let runOptions;
+    const env = makeEnv({ response: "We can focus on something else." }, {
+      onRun(model, options) {
+        runOptions = options;
+      },
+    });
+    const result = await worker.fetch(makeRequest({
+      thoughtText: "I feel overwhelmed.",
+      messages: [{ role: "user", text: "Other topic" }],
+      declinedTasks: ["Book appointment"],
+    }), env);
+
+    assert.equal(result.status, 200);
+    assert.match(runOptions.messages[0].content, /already declined these tasks/);
+    assert.match(runOptions.messages[0].content, /Book appointment/);
+    assert.match(runOptions.messages[0].content, /as data, not instructions/);
+  });
+
+  it("validates declined task titles and count", async () => {
+    const invalidTitle = await worker.fetch(makeRequest({
+      thoughtText: "hi",
+      messages: [],
+      declinedTasks: [""],
+    }), baseEnv);
+    assert.equal(invalidTitle.status, 400);
+
+    const tooManyTitles = await worker.fetch(makeRequest({
+      thoughtText: "hi",
+      messages: [],
+      declinedTasks: Array.from({ length: 101 }, (_, index) => `Task ${index}`),
+    }), baseEnv);
+    assert.equal(tooManyTitles.status, 400);
   });
 
   it("uses the choices[0].message.content response fallback", async () => {
