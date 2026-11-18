@@ -223,19 +223,25 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
 
   it("logs reply structure without exposing response or conversation content", async () => {
     const logs = [];
+    let runOptions;
     const originalConsoleError = console.error;
     console.error = (...args) => logs.push(args);
     try {
       const env = makeEnv({
         choices: [{
           id: "Private choice content",
-          finish_reason: "stop",
+          finish_reason: "length",
           message: {
             role: "assistant",
             content: " \t\n ",
+            reasoning_content: "Private reasoning content",
             privateData: "Private response content",
           },
         }],
+      }, {
+        onRun(_model, options) {
+          runOptions = options;
+        },
       });
       const result = await worker.fetch(makeRequest({
         thoughtText: "Private thought text",
@@ -243,6 +249,8 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
       }), env);
 
       assert.equal(result.status, 502);
+      assert.equal(runOptions.max_completion_tokens, 1000);
+      assert.equal(Object.hasOwn(runOptions, "max_tokens"), false);
     } finally {
       console.error = originalConsoleError;
     }
@@ -254,11 +262,11 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
         choicesLength: 1,
         choice0Exists: true,
         choice0Keys: ["id", "finish_reason", "message"],
-        messageKeys: ["role", "content", "privateData"],
+        messageKeys: ["role", "content", "reasoning_content", "privateData"],
         contentType: "string",
         contentIsNull: false,
         contentIsBlank: true,
-        finish_reason: "stop",
+        finish_reason: "length",
       },
     ]]);
     const serializedLogs = JSON.stringify(logs);
@@ -266,6 +274,7 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
     assert.equal(serializedLogs.includes("private chat"), false);
     assert.equal(serializedLogs.includes("Private choice content"), false);
     assert.equal(serializedLogs.includes("Private response content"), false);
+    assert.equal(serializedLogs.includes("Private reasoning content"), false);
   });
 
   it("returns 503 when the AI binding is missing", async () => {
