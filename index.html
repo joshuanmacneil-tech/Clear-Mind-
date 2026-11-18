@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f6f5ef">
-<meta name="application-name" content="Clear Mind">
+<meta name="application-name" content="Unravel">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Clear Mind">
+<meta name="apple-mobile-web-app-title" content="Unravel">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" href="./icons/clear-mind.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="./icons/clear-mind.svg">
-<title>Clear Mind</title>
+<link rel="icon" href="./icons/unravel.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/unravel.svg">
+<title>Unravel</title>
 <style>
 :root {
   color-scheme: light;
@@ -795,8 +795,8 @@ code {
     <div class="logo">
       <span>✨</span>
       <div>
-        <h1>Clear Mind</h1>
-        <small>A little less noise.</small>
+        <h1>Unravel</h1>
+        <small>Make sense of what's on your mind.</small>
       </div>
     </div>
     <div class="date" id="date"></div>
@@ -867,7 +867,7 @@ code {
       <h3>Empty your head 🧠</h3>
       <p class="muted">Messy thoughts welcome. No organizing required.</p>
       <textarea id="thought" placeholder="I need to remember... I keep thinking about..."></textarea>
-      <button class="primary" id="thoughtSubmitButton" type="button" onclick="addThought()">Submit to Clear Mind</button>
+      <button class="primary" id="thoughtSubmitButton" type="button" onclick="addThought()">Submit to Unravel</button>
     </div>
     <div class="panel">
       <h3>Your thoughts</h3>
@@ -1217,7 +1217,7 @@ function renderAIConversation() {
   $("aiTranscript").innerHTML = state.aiMessages.length
     ? state.aiMessages.map((message, messageIndex) => {
         const content = `
-          <strong>${message.role === "user" ? "You" : "Clear Mind"}</strong>
+          <strong>${message.role === "user" ? "You" : "Unravel"}</strong>
           <div>${escapeHTML(message.text)}</div>
         `;
         if (message.role === "assistant") {

@@ -1,6 +1,6 @@
-# Clear Mind — OpenAI Cloudflare Worker (Stage 1)
+# Unravel — OpenAI Cloudflare Worker (Stage 1)
 
-This directory contains the Cloudflare Worker API used by Clear Mind's Explore with AI conversation in `index.html`. The browser sends only the selected Brain Dump thought and that thought's chat history; it keeps tasks and conversations in localStorage.
+This directory contains the Cloudflare Worker API used by Unravel's Explore with AI conversation in `index.html`. The browser sends only the selected Brain Dump thought and that thought's chat history; it keeps tasks and conversations in localStorage.
 
 ## What it does
 

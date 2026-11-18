@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1170 2532" role="img" aria-labelledby="title">
-  <title id="title">Clear Mind</title>
+  <title id="title">Unravel</title>
   <rect width="1170" height="2532" fill="#f6f5ef"/>
   <circle cx="585" cy="1050" r="205" fill="#e8efe7"/>
   <g transform="translate(0 845) scale(3.2)">
@@ -11,6 +11,6 @@
     <circle cx="13" cy="35" r="2" fill="#d98f82" opacity=".65"/>
     <circle cx="32" cy="35" r="2" fill="#d98f82" opacity=".65"/>
   </g>
-  <text x="585" y="1515" text-anchor="middle" fill="#283a30" font-family="system-ui, sans-serif" font-size="76" font-weight="650">Clear Mind</text>
-  <text x="585" y="1585" text-anchor="middle" fill="#586b60" font-family="system-ui, sans-serif" font-size="34">A little less noise.</text>
+  <text x="585" y="1515" text-anchor="middle" fill="#283a30" font-family="system-ui, sans-serif" font-size="76" font-weight="650">Unravel</text>
+  <text x="585" y="1585" text-anchor="middle" fill="#586b60" font-family="system-ui, sans-serif" font-size="34">Make sense of what's on your mind.</text>
 </svg>

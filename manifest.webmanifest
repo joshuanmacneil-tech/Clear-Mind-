@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Clear Mind",
-  "short_name": "Clear Mind",
-  "description": "A little less noise.",
+  "name": "Unravel",
+  "short_name": "Unravel",
+  "description": "Make sense of what's on your mind.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",
@@ -13,13 +13,13 @@
   "background_color": "#f6f5ef",
   "icons": [
     {
-      "src": "./icons/clear-mind.svg",
+      "src": "./icons/unravel.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "./icons/clear-mind.svg",
+      "src": "./icons/unravel.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"

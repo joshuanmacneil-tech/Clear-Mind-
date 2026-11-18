@@ -5,7 +5,7 @@ import worker from "./index.js";
 const baseEnv = {
   AI_MODEL: "@cf/google/gemma-4-26b-a4b-it",
   AI: { run: async () => ({ response: "A supportive response." }) },
-  ALLOWED_ORIGINS: "https://clear-mind.example",
+  ALLOWED_ORIGINS: "https://unravel.example",
   MAX_REQUEST_BYTES: "65536",
   MAX_HISTORY_MESSAGES: "2",
   MAX_MESSAGE_CHARS: "20",
@@ -38,7 +38,7 @@ function makeEnv(aiResult, overrides = {}) {
   };
 }
 
-describe("Clear Mind Worker with Cloudflare Workers AI", () => {
+describe("Unravel Worker with Cloudflare Workers AI", () => {
   it("rejects unexpected origins and allows the configured CORS origin", async () => {
     const rejected = await worker.fetch(
       makeRequest({ thoughtText: "hi", messages: [] }, { origin: "https://bad.example" }),
@@ -47,20 +47,20 @@ describe("Clear Mind Worker with Cloudflare Workers AI", () => {
     assert.equal(rejected.status, 403);
 
     const allowed = await worker.fetch(
-      makeRequest({ thoughtText: "hi", messages: [] }, { origin: "https://clear-mind.example" }),
+      makeRequest({ thoughtText: "hi", messages: [] }, { origin: "https://unravel.example" }),
       baseEnv,
     );
-    assert.equal(allowed.headers.get("Access-Control-Allow-Origin"), "https://clear-mind.example");
+    assert.equal(allowed.headers.get("Access-Control-Allow-Origin"), "https://unravel.example");
     assert.equal(allowed.headers.get("Access-Control-Allow-Methods"), "POST, OPTIONS");
   });
 
   it("answers CORS preflight requests", async () => {
     const result = await worker.fetch(makeRequest(null, {
       method: "OPTIONS",
-      origin: "https://clear-mind.example",
+      origin: "https://unravel.example",
     }), baseEnv);
     assert.equal(result.status, 204);
-    assert.equal(result.headers.get("Access-Control-Allow-Origin"), "https://clear-mind.example");
+    assert.equal(result.headers.get("Access-Control-Allow-Origin"), "https://unravel.example");
   });
 
   it("validates required thought text, allowed fields, content type, and message roles", async () => {
@@ -112,7 +112,7 @@ describe("Clear Mind Worker with Cloudflare Workers AI", () => {
     const result = await worker.fetch(makeRequest({
       thoughtText: "Selected idea",
       messages: [{ role: "user", text: "Help me sort this" }],
-    }, { origin: "https://clear-mind.example" }), env);
+    }, { origin: "https://unravel.example" }), env);
 
     assert.equal(result.status, 200);
     assert.deepEqual(await result.json(), { reply: "One small step at a time." });
