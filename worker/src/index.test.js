@@ -191,6 +191,68 @@ describe("Unravel Worker with Cloudflare Workers AI", () => {
     assert.deepEqual(await result.json(), { reply: "Nested response works." });
   });
 
+  it("logs AI request errors without logging the user's thought", async () => {
+    const logs = [];
+    const originalConsoleError = console.error;
+    console.error = (...args) => logs.push(args);
+    try {
+      const env = {
+        ...baseEnv,
+        AI: { run: async () => { throw new Error("AI binding unavailable"); } },
+      };
+      const result = await worker.fetch(makeRequest({
+        thoughtText: "Private thought text",
+        messages: [],
+      }), env);
+
+      assert.equal(result.status, 502);
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    assert.deepEqual(logs, [[
+      "Workers AI request failed",
+      {
+        model: "@cf/google/gemma-4-26b-a4b-it",
+        errorName: "Error",
+        errorMessage: "AI binding unavailable",
+      },
+    ]]);
+    assert.equal(JSON.stringify(logs).includes("Private thought text"), false);
+  });
+
+  it("logs only the model and top-level response keys when no reply is recognized", async () => {
+    const logs = [];
+    const originalConsoleError = console.error;
+    console.error = (...args) => logs.push(args);
+    try {
+      const env = makeEnv({
+        diagnostic: "Private response content",
+        response: "",
+      });
+      const result = await worker.fetch(makeRequest({
+        thoughtText: "Private thought text",
+        messages: [{ role: "user", text: "private chat" }],
+      }), env);
+
+      assert.equal(result.status, 502);
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    assert.deepEqual(logs, [[
+      "Workers AI returned no recognized reply",
+      {
+        model: "@cf/google/gemma-4-26b-a4b-it",
+        responseKeys: ["diagnostic", "response"],
+      },
+    ]]);
+    const serializedLogs = JSON.stringify(logs);
+    assert.equal(serializedLogs.includes("Private thought text"), false);
+    assert.equal(serializedLogs.includes("private chat"), false);
+    assert.equal(serializedLogs.includes("Private response content"), false);
+  });
+
   it("returns 503 when the AI binding is missing", async () => {
     const env = { ...baseEnv, AI: undefined };
     const result = await worker.fetch(makeRequest({ thoughtText: "hi", messages: [] }), env);

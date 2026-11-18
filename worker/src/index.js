@@ -199,7 +199,12 @@ export default {
           ...validated.value.messages,
         ],
       });
-    } catch {
+    } catch (error) {
+      console.error("Workers AI request failed", {
+        model,
+        errorName: error?.name,
+        errorMessage: error?.message,
+      });
       return response(502, { error: "Could not reach the AI service. Please retry." }, corsHeaders);
     }
 
@@ -210,6 +215,8 @@ export default {
       aiResult?.result?.choices?.[0]?.message?.content,
     ].find(value => typeof value === "string" && value.trim());
     if (typeof reply !== "string") {
+      const responseKeys = aiResult && typeof aiResult === "object" ? Object.keys(aiResult) : [];
+      console.error("Workers AI returned no recognized reply", { model, responseKeys });
       return response(502, { error: "The AI service returned no reply. Please retry." }, corsHeaders);
     }
     return response(200, { reply: reply.trim() }, corsHeaders);
