@@ -1356,14 +1356,25 @@ function normalizeConfirmationReply(text) {
     : "";
 }
 
-function isClearAffirmative(text) {
-  return new Set([
+function isClearAffirmative(text, pendingTitle = "") {
+  const normalized = normalizeConfirmationReply(text);
+  if (new Set([
     "yes", "yes please", "yes please do", "yep", "yep please", "yeah", "yeah please",
-    "sure", "sure please", "absolutely", "definitely", "go ahead", "yes go ahead", "please do",
+    "sure", "sure please", "sure go ahead", "absolutely", "definitely", "go ahead", "yes go ahead", "please do",
     "add it", "please add it", "that sounds good", "that would be good",
     "okay", "okay please", "ok", "ok please", "let's do it", "lets do it",
     "you can add it", "i'd like that", "i would like that"
-  ]).has(normalizeConfirmationReply(text));
+  ]).has(normalized)) return true;
+
+  const addRequest = normalized.match(
+    /^(?:(?:yes|yep|yeah|sure|absolutely|definitely|okay|ok)\s+)?(?:please\s+)?(?:(?:let's|lets)\s+)?(?:add|put)\s+(.+?)(?:\s+to\s+(?:my|the)\s+list)?(?:\s+please)?$/
+  );
+  if (!addRequest) return false;
+
+  const requestedTitle = addRequest[1].trim();
+  if (requestedTitle === "that" || requestedTitle === "it") return true;
+  return Boolean(pendingTitle) &&
+    requestedTitle === normalizeConfirmationReply(pendingTitle);
 }
 
 function isClearDecline(text) {
@@ -1532,7 +1543,7 @@ function processAIActionTags(reply, messages = []) {
         normalizeTaskTitle(pendingConfirmation.title) === normalizeTaskTitle(title) &&
         userConfirmation?.status === "confirmed" &&
         normalizeTaskTitle(userConfirmation.title) === normalizeTaskTitle(title) &&
-        isClearAffirmative(pendingConfirmation.userMessage.text);
+        isClearAffirmative(pendingConfirmation.userMessage.text, pendingConfirmation.title);
       if (!confirmed) {
         const confirmationTitle = pendingConfirmation?.title || title;
         return {
@@ -1599,7 +1610,7 @@ async function sendAIMessage(event) {
 
   const pendingConfirmation = getPendingTaskConfirmation(state.aiMessages);
   let taskConfirmation;
-  if (pendingConfirmation && isClearAffirmative(text)) {
+  if (pendingConfirmation && isClearAffirmative(text, pendingConfirmation.title)) {
     taskConfirmation = { status: "confirmed", title: pendingConfirmation.title };
   } else if (pendingConfirmation && isClearDecline(text)) {
     taskConfirmation = { status: "declined", title: pendingConfirmation.title };

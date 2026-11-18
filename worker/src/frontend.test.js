@@ -128,6 +128,83 @@ describe("Brain Dump task confirmation flow", () => {
     assert.deepEqual(frontend.getTasks(), []);
   });
 
+  it("recognizes natural affirmative replies, including an explicit matching task title", () => {
+    const frontend = createFrontend();
+    const affirmativeReplies = [
+      "Yes, let's add that.",
+      "Yes, add it to my list.",
+      "Sure, go ahead.",
+      "Absolutely.",
+      "That sounds good.",
+      "Let's do it.",
+      "Please add that.",
+      "Yes, please.",
+      "Yes, let's add call dentist to my list.",
+      "Please add Call dentist.",
+    ];
+
+    for (const reply of affirmativeReplies) {
+      frontend.context.testReply = reply;
+      assert.equal(
+        frontend.run("isClearAffirmative(testReply, 'Call dentist')"),
+        true,
+        `Expected affirmative reply: ${reply}`,
+      );
+    }
+
+    for (const reply of ["maybe", "I think so", "that might help", "we'll see"]) {
+      frontend.context.testReply = reply;
+      assert.equal(
+        frontend.run("isClearAffirmative(testReply, 'Call dentist')"),
+        false,
+        `Expected ambiguous reply: ${reply}`,
+      );
+    }
+
+    frontend.context.testReply = "Yes, add mow lawn to my list.";
+    assert.equal(frontend.run("isClearAffirmative(testReply, 'Call dentist')"), false);
+  });
+
+  it("adds only the task named by the immediately preceding pending confirmation", () => {
+    const frontend = createFrontend();
+    setMessages(frontend, [
+      {
+        role: "assistant",
+        text: "Would you like me to add Call dentist to your My List?",
+        taskConfirmation: { status: "pending", title: "Call dentist" }
+      },
+      {
+        role: "user",
+        text: "Yes, let's add call dentist to my list.",
+        taskConfirmation: { status: "confirmed", title: "Call dentist" }
+      }
+    ]);
+
+    const result = frontend.evaluateReply("[ADD_TASK: Call dentist]");
+    assert.equal(result.taskAction.type, "added");
+    assert.equal(result.taskAction.title, "Call dentist");
+    assert.equal(frontend.getTasks().length, 1);
+  });
+
+  it("does not accept an affirmative reply when the pending confirmation is not the previous message", () => {
+    const frontend = createFrontend();
+    setMessages(frontend, [
+      {
+        role: "assistant",
+        text: "Would you like me to add Call dentist?",
+        taskConfirmation: { status: "pending", title: "Call dentist" }
+      },
+      { role: "user", text: "I have another question." },
+      { role: "assistant", text: "Of course, what would you like to know?" },
+      { role: "user", text: "Sure, go ahead." }
+    ]);
+
+    const result = frontend.evaluateReply("[ADD_TASK: Call dentist]");
+    assert.equal(result.taskAction, null);
+    assert.deepEqual(frontend.getTasks(), []);
+    assert.match(result.text, /Would you like me to add.*Call dentist.*My List\?/);
+  });
+
   it("records declines and suppresses repeated confirmation requests in that conversation", () => {
     const frontend = createFrontend();
     assert.equal(frontend.run("isClearAffirmative('Yes, please.')"), true);
