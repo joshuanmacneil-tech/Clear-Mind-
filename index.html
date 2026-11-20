@@ -20,10 +20,10 @@
   --panel-soft: #f2f5ef;
   --panel-border: #e5e9e1;
   --text: #283a30;
-  --muted: #586b60;
-  --soft: #68796f;
-  --accent: #54755e;
-  --accent-dark: #3e6049;
+  --muted: #50645A;
+  --soft: #607269;
+  --accent: #344F3D;
+  --accent-dark: #263F30;
   --accent-soft: #e8efe7;
   --warm: #f4ede1;
   --danger: #9a5149;
@@ -59,8 +59,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   outline-offset: 3px;
 }
 .primary {
-  background: var(--accent);
-  color: #fff;
+  background: #6D8973;
+  color: #FFFFFF;
   box-shadow: 0 3px 8px rgba(52, 83, 60, .15);
 }
 .primary:hover { background: var(--accent-dark); }
@@ -143,7 +143,7 @@ small, .muted, label { color: var(--muted); }
 }
 .stat, .panel {
   background: var(--panel);
-  border: 1px solid var(--panel-border);
+  border: 1px solid #D5DFD4;
   border-radius: 20px;
   padding: 18px;
   box-shadow: var(--shadow);
@@ -184,8 +184,7 @@ small, .muted, label { color: var(--muted); }
 #home .pick {
   padding: clamp(20px, 4vw, 26px);
   margin-bottom: 12px;
-  background: linear-gradient(125deg, #e6eee4, #eff1e8 72%, #f5eee3);
-  border-color: #e1e8dd;
+  background: linear-gradient(125deg, #e1e8dd, #edf2e9 72%, #f4ede1);
   border-radius: 24px;
 }
 #home .pick h2 {
@@ -225,7 +224,7 @@ small, .muted, label { color: var(--muted); }
 #todayWins {
   margin: 18px 0 22px;
   padding: 18px;
-  border: 1px solid #e1e8dd;
+  border: 1px solid #D5DFD4;
   border-radius: 20px;
   background: linear-gradient(125deg, #f1f5ee, #faf7ef);
   box-shadow: var(--shadow);
@@ -255,7 +254,7 @@ small, .muted, label { color: var(--muted); }
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid rgba(225, 232, 221, .8);
+  border: 1px solid #D5DFD4;
   border-radius: 13px;
   background: rgba(255, 254, 250, .82);
 }
@@ -293,7 +292,7 @@ small, .muted, label { color: var(--muted); }
   display: block;
   width: 100%;
   padding: 19px 52px 19px 20px;
-  border: 1px solid #e8dfd1;
+  border: 2px solid #B8C9B9;
   border-radius: 20px;
   background: #fffaf1;
   color: var(--text);
@@ -308,6 +307,7 @@ small, .muted, label { color: var(--muted); }
   display: block;
   color: var(--accent-dark);
   font-size: 17px;
+  font-weight: 400;
 }
 .brain-dump-entry span {
   display: block;
@@ -348,7 +348,7 @@ nav {
   backdrop-filter: blur(14px);
 }
 nav button {
-  background: transparent;
+  background: var(--accent-soft);
   color: var(--muted);
   min-width: 0;
   min-height: 48px;
@@ -356,8 +356,14 @@ nav button {
   padding: 11px 8px;
 }
 nav button.active {
-  background: var(--accent-soft);
-  color: var(--accent-dark);
+  background: #6D8973;
+  color: #FFFFFF;
+}
+nav button.active:hover {
+  background: #607B66;
+}
+nav button:not(.active):hover {
+  background: #dce5dc;
 }
 .view { display: none; }
 .view.active { display: block; }
@@ -392,7 +398,6 @@ nav button.active {
 #tasks > .panel:last-child {
   padding: 18px;
   background: var(--panel-soft);
-  border-color: #e1e8dd;
 }
 #taskList {
   display: grid;
@@ -401,7 +406,6 @@ nav button.active {
 #taskList .task {
   padding: 15px 16px;
   margin: 0;
-  border-color: #e1e8dd;
   border-radius: 14px;
   box-shadow: 0 2px 6px rgba(49, 66, 52, .035);
 }
@@ -423,6 +427,36 @@ textarea {
   min-height: 105px;
   resize: vertical;
 }
+.speech-input-wrap { position: relative; }
+#thought {
+  padding-right: 60px;
+  background: #F2F5EF;
+}
+.speech-toggle {
+  position: absolute;
+  right: 10px;
+  bottom: 24px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  background: #6D8973;
+  color: #FFFFFF;
+}
+.speech-toggle:hover { background: #607B66; }
+.speech-toggle.is-listening {
+  background: #B65E55;
+  box-shadow: 0 0 0 4px rgba(109, 137, 115, .2);
+}
+.speech-toggle .speech-stop-icon { display: none; }
+.speech-toggle.is-listening .speech-microphone-icon { display: none; }
+.speech-toggle.is-listening .speech-stop-icon { display: block; }
+.speech-toggle svg { width: 20px; height: 20px; }
+.speech-feedback { margin: -8px 0 14px; }
+.speech-status { margin: 0; color: var(--muted); font-size: 12px; }
+.speech-privacy { margin: 2px 0 0; color: var(--soft); font-size: 11px; line-height: 1.35; }
 input[type="checkbox"] {
   width: 20px;
   margin: 2px 0;
@@ -444,7 +478,7 @@ label {
   align-items: flex-start;
   padding: 14px;
   background: #fff;
-  border: 1px solid #e8ebe5;
+  border: 1px solid #D5DFD4;
   border-radius: 16px;
   margin: 10px 0;
 }
@@ -561,7 +595,7 @@ label {
 }
 .pick {
   background: linear-gradient(125deg, #edf2e9, #f5f2e8);
-  border: 1px solid #e2e9df;
+  border: 1px solid #D5DFD4;
   border-radius: 20px;
   padding: 21px;
   margin-bottom: 16px;
@@ -573,7 +607,7 @@ label {
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--panel-soft);
-  border: 1px solid var(--panel-border);
+  border: 1px solid #D5DFD4;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
@@ -587,6 +621,7 @@ label {
 }
 .chat-message {
   padding: 9px 13px;
+  border: 1px solid #D5DFD4;
   border-radius: 15px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -670,7 +705,7 @@ label {
   border: 1px solid #dfe8dc;
   border-radius: 999px;
   background: #edf3e9;
-  color: #536d56;
+  color: #344F3D;
   font-size: 11px;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -678,7 +713,7 @@ label {
 .chat-task-confirmation button {
   padding: 0;
   background: transparent;
-  color: #536d56;
+  color: #344F3D;
   font-size: inherit;
   font-weight: 600;
   text-decoration: underline;
@@ -866,7 +901,22 @@ code {
     <div class="panel">
       <h3>Empty your head 🧠</h3>
       <p class="muted">Messy thoughts welcome. No organizing required.</p>
-      <textarea id="thought" placeholder="I need to remember... I keep thinking about..."></textarea>
+      <div class="speech-input-wrap">
+        <textarea id="thought" placeholder="I need to remember... I keep thinking about..."></textarea>
+        <button type="button" class="speech-toggle" id="speechToggleButton" aria-label="Start recording" aria-controls="thought" aria-pressed="false" title="Start recording">
+          <svg class="speech-microphone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="2" width="6" height="13" rx="3"/>
+            <path d="M5 11v1a7 7 0 0 0 14 0v-1m-7 8v3m-4 0h8"/>
+          </svg>
+          <svg class="speech-stop-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+      <div class="speech-feedback">
+        <p id="speechStatus" class="speech-status" role="status" aria-live="polite">Ready to record.</p>
+        <p class="speech-privacy">Your browser may send speech to an external recognition service.</p>
+      </div>
       <button class="primary" id="thoughtSubmitButton" type="button" onclick="addThought()">Submit to Unravel</button>
     </div>
     <div class="panel">
@@ -1024,9 +1074,188 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+const speechInput = {
+  recognition: null,
+  shouldListen: false,
+  isStarting: false,
+  isActive: false,
+  restartTimer: null,
+  startFailures: 0,
+  handledResults: new Set()
+};
+const SPEECH_START_FAILURE_LIMIT = 3;
+const SPEECH_RESTART_DELAY_MS = 250;
 const aiEndpoint = (typeof window !== "undefined" && window.CLEAR_MIND_AI_URL) ? String(window.CLEAR_MIND_AI_URL).trim() : "";
 let lastEncouragementIndex = null;
 let taskCelebrationTimeout = null;
+
+function updateSpeechButton() {
+  const button = $("speechToggleButton");
+  const shouldListen = speechInput.shouldListen;
+  const label = shouldListen ? "Stop recording" : "Start recording";
+  button.classList.toggle("is-listening", shouldListen);
+  button.setAttribute("aria-pressed", String(shouldListen));
+  button.setAttribute("aria-label", label);
+  button.title = label;
+}
+
+function setSpeechStatus(message) {
+  $("speechStatus").textContent = message;
+}
+
+function stopSpeechForError(message) {
+  speechInput.shouldListen = false;
+  if (speechInput.restartTimer !== null) {
+    window.clearTimeout(speechInput.restartTimer);
+    speechInput.restartTimer = null;
+  }
+  updateSpeechButton();
+  setSpeechStatus(message);
+}
+
+function appendSpeechTranscript(transcript) {
+  const field = $("thought");
+  const addition = transcript.trim();
+  if (!addition) return;
+
+  const existingText = field.value;
+  const needsSpace = existingText && !/\s$/.test(existingText) && !/^[,.;:!?]/.test(addition);
+  field.value = existingText + (needsSpace ? " " : "") + addition;
+  field.setSelectionRange(field.value.length, field.value.length);
+}
+
+function scheduleSpeechRestart() {
+  if (!speechInput.shouldListen || speechInput.restartTimer !== null) return;
+  speechInput.restartTimer = window.setTimeout(() => {
+    speechInput.restartTimer = null;
+    startSpeechRecognition();
+  }, SPEECH_RESTART_DELAY_MS);
+}
+
+function startSpeechRecognition() {
+  if (!speechInput.shouldListen || speechInput.isStarting || speechInput.isActive ||
+      speechInput.restartTimer !== null || !speechInput.recognition) {
+    return;
+  }
+
+  speechInput.isStarting = true;
+  try {
+    speechInput.recognition.start();
+  } catch (error) {
+    speechInput.isStarting = false;
+    if (error.name === "NotAllowedError" || error.name === "SecurityError") {
+      stopSpeechForError("Microphone permission denied. Check your browser settings.");
+      return;
+    }
+
+    speechInput.startFailures += 1;
+    if (speechInput.startFailures >= SPEECH_START_FAILURE_LIMIT) {
+      stopSpeechForError("Speech recognition unavailable. You can continue typing.");
+      return;
+    }
+
+    setSpeechStatus("Could not start speech recognition. Retrying…");
+    scheduleSpeechRestart();
+  }
+}
+
+function toggleSpeechRecognition() {
+  if (!speechInput.recognition) return;
+
+  if (speechInput.shouldListen) {
+    speechInput.shouldListen = false;
+    if (speechInput.restartTimer !== null) {
+      window.clearTimeout(speechInput.restartTimer);
+      speechInput.restartTimer = null;
+    }
+    updateSpeechButton();
+    setSpeechStatus("Recording stopped.");
+    if (speechInput.isActive) {
+      try {
+        speechInput.recognition.stop();
+      } catch (error) {
+        if (error.name !== "InvalidStateError") {
+          setSpeechStatus("Could not stop speech recognition. Please try again.");
+        }
+      }
+    }
+    return;
+  }
+
+  speechInput.shouldListen = true;
+  speechInput.startFailures = 0;
+  updateSpeechButton();
+  setSpeechStatus("Starting microphone…");
+  startSpeechRecognition();
+}
+
+function initializeSpeechRecognition() {
+  const button = $("speechToggleButton");
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (typeof Recognition !== "function") {
+    button.disabled = true;
+    setSpeechStatus("Speech recognition unavailable in this browser.");
+    return;
+  }
+
+  try {
+    const recognition = new Recognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = navigator.language || "en-US";
+    recognition.onstart = () => {
+      speechInput.isStarting = false;
+      speechInput.isActive = true;
+      speechInput.startFailures = 0;
+      speechInput.handledResults = new Set();
+      if (!speechInput.shouldListen) {
+        try {
+          recognition.stop();
+        } catch (error) {
+          if (error.name !== "InvalidStateError") {
+            setSpeechStatus("Could not stop speech recognition. Please try again.");
+          }
+        }
+        return;
+      }
+      setSpeechStatus("Listening…");
+    };
+    recognition.onresult = (event) => {
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        if (!result.isFinal || speechInput.handledResults.has(index)) continue;
+        speechInput.handledResults.add(index);
+        appendSpeechTranscript(result[0].transcript);
+      }
+    };
+    recognition.onerror = (event) => {
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        stopSpeechForError("Microphone permission denied. Check your browser settings.");
+      } else if (event.error === "audio-capture") {
+        stopSpeechForError("Microphone unavailable. You can continue typing.");
+      } else if (event.error === "language-not-supported") {
+        stopSpeechForError("Speech recognition unavailable for this language.");
+      } else if (event.error !== "no-speech" && speechInput.shouldListen) {
+        setSpeechStatus("Speech recognition interrupted. Reconnecting…");
+      }
+    };
+    recognition.onend = () => {
+      speechInput.isStarting = false;
+      speechInput.isActive = false;
+      speechInput.handledResults = new Set();
+      if (speechInput.shouldListen) {
+        setSpeechStatus("Speech recognition paused. Reconnecting…");
+        scheduleSpeechRestart();
+      }
+    };
+
+    speechInput.recognition = recognition;
+    button.addEventListener("click", toggleSpeechRecognition);
+  } catch (error) {
+    button.disabled = true;
+    setSpeechStatus("Speech recognition unavailable in this browser.");
+  }
+}
 
 function showEncouragement() {
   let previousIndex = lastEncouragementIndex;
@@ -1941,7 +2170,7 @@ function renderHome() {
       <div class="focus-actions">
         ${openTasks.length
           ? '<button class="secondary mini-button" type="button" onclick="pickTask()">Choose a task from My List</button>'
-          : '<button class="secondary mini-button" type="button" onclick="switchView(\'tasks\')">Add one thing</button>'}
+          : '<button class="primary mini-button" type="button" onclick="switchView(\'tasks\')">Add one thing</button>'}
       </div>
     `;
   }
@@ -2054,6 +2283,7 @@ document.addEventListener("click", (event) => {
 });
 
 function initialize() {
+  initializeSpeechRecognition();
   migrateLegacyData();
   state.tasks = loadData(STORAGE.tasks, []);
   state.thoughts = loadData(STORAGE.thoughts, []);
