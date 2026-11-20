@@ -428,8 +428,8 @@ textarea {
   resize: vertical;
 }
 .speech-input-wrap { position: relative; }
+#thought, #aiMessage { padding-right: 60px; }
 #thought {
-  padding-right: 60px;
   background: #F2F5EF;
 }
 .speech-toggle {
@@ -937,7 +937,22 @@ code {
       <div id="aiTranscript" class="chat-transcript" aria-live="polite"></div>
       <form id="aiForm" onsubmit="sendAIMessage(event)">
         <label for="aiMessage">What would you like to explore?</label>
-        <textarea id="aiMessage" placeholder="Ask a follow-up, sort through ideas, or look for a next step..."></textarea>
+        <div class="speech-input-wrap">
+          <textarea id="aiMessage" placeholder="Ask a follow-up, sort through ideas, or look for a next step..."></textarea>
+          <button type="button" class="speech-toggle" id="aiSpeechToggleButton" aria-label="Start recording" aria-controls="aiMessage" aria-pressed="false" title="Start recording">
+            <svg class="speech-microphone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="2" width="6" height="13" rx="3"/>
+              <path d="M5 11v1a7 7 0 0 0 14 0v-1m-7 8v3m-4 0h8"/>
+            </svg>
+            <svg class="speech-stop-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+        <div class="speech-feedback">
+          <p id="aiSpeechStatus" class="speech-status" role="status" aria-live="polite">Ready to record.</p>
+          <p class="speech-privacy">Your browser may send speech to an external recognition service.</p>
+        </div>
         <button class="primary" id="aiSendButton" type="submit">Send message</button>
       </form>
     </div>
@@ -1081,8 +1096,14 @@ const speechInput = {
   isActive: false,
   restartTimer: null,
   startFailures: 0,
-  handledResults: new Set()
+  handledResults: new Set(),
+  target: null,
+  pendingTarget: null
 };
+const SPEECH_INPUT_CONTROLS = [
+  { fieldId: "thought", buttonId: "speechToggleButton", statusId: "speechStatus" },
+  { fieldId: "aiMessage", buttonId: "aiSpeechToggleButton", statusId: "aiSpeechStatus" }
+];
 const SPEECH_START_FAILURE_LIMIT = 3;
 const SPEECH_RESTART_DELAY_MS = 250;
 const aiEndpoint = (typeof window !== "undefined" && window.CLEAR_MIND_AI_URL) ? String(window.CLEAR_MIND_AI_URL).trim() : "";
@@ -1090,33 +1111,45 @@ let lastEncouragementIndex = null;
 let taskCelebrationTimeout = null;
 
 function updateSpeechButton() {
-  const button = $("speechToggleButton");
-  const shouldListen = speechInput.shouldListen;
-  const label = shouldListen ? "Stop recording" : "Start recording";
-  button.classList.toggle("is-listening", shouldListen);
-  button.setAttribute("aria-pressed", String(shouldListen));
-  button.setAttribute("aria-label", label);
-  button.title = label;
+  SPEECH_INPUT_CONTROLS.forEach((control) => {
+    const button = $(control.buttonId);
+    const isListening = speechInput.shouldListen && speechInput.target &&
+      speechInput.target.fieldId === control.fieldId;
+    const label = isListening ? "Stop recording" : "Start recording";
+    button.classList.toggle("is-listening", isListening);
+    button.setAttribute("aria-pressed", String(isListening));
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  });
 }
 
-function setSpeechStatus(message) {
-  $("speechStatus").textContent = message;
+function setSpeechStatus(message, target = speechInput.target) {
+  const targets = target ? [target] : SPEECH_INPUT_CONTROLS;
+  targets.forEach((control) => {
+    $(control.statusId).textContent = message;
+  });
 }
 
 function stopSpeechForError(message) {
+  const target = speechInput.target;
+  const pendingTarget = speechInput.pendingTarget;
   speechInput.shouldListen = false;
+  speechInput.pendingTarget = null;
   if (speechInput.restartTimer !== null) {
     window.clearTimeout(speechInput.restartTimer);
     speechInput.restartTimer = null;
   }
   updateSpeechButton();
-  setSpeechStatus(message);
+  setSpeechStatus(message, target);
+  if (pendingTarget && (!target || pendingTarget.fieldId !== target.fieldId)) {
+    setSpeechStatus(message, pendingTarget);
+  }
 }
 
 function appendSpeechTranscript(transcript) {
-  const field = $("thought");
+  const field = speechInput.target ? $(speechInput.target.fieldId) : null;
   const addition = transcript.trim();
-  if (!addition) return;
+  if (!field || !addition) return;
 
   const existingText = field.value;
   const needsSpace = existingText && !/\s$/.test(existingText) && !/^[,.;:!?]/.test(addition);
@@ -1159,41 +1192,79 @@ function startSpeechRecognition() {
   }
 }
 
-function toggleSpeechRecognition() {
+function startSpeechRecognitionFor(target) {
+  speechInput.target = target;
+  speechInput.pendingTarget = null;
+  speechInput.shouldListen = true;
+  speechInput.startFailures = 0;
+  updateSpeechButton();
+  setSpeechStatus("Starting microphone…", target);
+  startSpeechRecognition();
+}
+
+function stopSpeechRecognition() {
+  const target = speechInput.target;
+  speechInput.shouldListen = false;
+  speechInput.pendingTarget = null;
+  if (speechInput.restartTimer !== null) {
+    window.clearTimeout(speechInput.restartTimer);
+    speechInput.restartTimer = null;
+  }
+  updateSpeechButton();
+  setSpeechStatus("Recording stopped.", target);
+  if (speechInput.isActive) {
+    try {
+      speechInput.recognition.stop();
+    } catch (error) {
+      if (error.name !== "InvalidStateError") {
+        setSpeechStatus("Could not stop speech recognition. Please try again.", target);
+      }
+    }
+  }
+}
+
+function toggleSpeechRecognition(target) {
   if (!speechInput.recognition) return;
 
-  if (speechInput.shouldListen) {
+  if (speechInput.shouldListen && speechInput.target &&
+      speechInput.target.fieldId === target.fieldId) {
+    stopSpeechRecognition();
+    return;
+  }
+
+  if (speechInput.isActive || speechInput.isStarting) {
+    const currentTarget = speechInput.target;
+    speechInput.pendingTarget = target;
     speechInput.shouldListen = false;
-    if (speechInput.restartTimer !== null) {
-      window.clearTimeout(speechInput.restartTimer);
-      speechInput.restartTimer = null;
-    }
     updateSpeechButton();
-    setSpeechStatus("Recording stopped.");
+    setSpeechStatus("Recording stopped.", currentTarget);
+    setSpeechStatus("Switching microphone…", target);
     if (speechInput.isActive) {
       try {
         speechInput.recognition.stop();
       } catch (error) {
         if (error.name !== "InvalidStateError") {
-          setSpeechStatus("Could not stop speech recognition. Please try again.");
+          setSpeechStatus("Could not stop speech recognition. Please try again.", currentTarget);
         }
       }
     }
     return;
   }
 
-  speechInput.shouldListen = true;
-  speechInput.startFailures = 0;
-  updateSpeechButton();
-  setSpeechStatus("Starting microphone…");
-  startSpeechRecognition();
+  if (speechInput.restartTimer !== null) {
+    window.clearTimeout(speechInput.restartTimer);
+    speechInput.restartTimer = null;
+    setSpeechStatus("Recording stopped.", speechInput.target);
+  }
+  startSpeechRecognitionFor(target);
 }
 
 function initializeSpeechRecognition() {
-  const button = $("speechToggleButton");
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (typeof Recognition !== "function") {
-    button.disabled = true;
+    SPEECH_INPUT_CONTROLS.forEach((control) => {
+      $(control.buttonId).disabled = true;
+    });
     setSpeechStatus("Speech recognition unavailable in this browser.");
     return;
   }
@@ -1243,6 +1314,12 @@ function initializeSpeechRecognition() {
       speechInput.isStarting = false;
       speechInput.isActive = false;
       speechInput.handledResults = new Set();
+      const pendingTarget = speechInput.pendingTarget;
+      speechInput.pendingTarget = null;
+      if (pendingTarget) {
+        startSpeechRecognitionFor(pendingTarget);
+        return;
+      }
       if (speechInput.shouldListen) {
         setSpeechStatus("Speech recognition paused. Reconnecting…");
         scheduleSpeechRestart();
@@ -1250,9 +1327,13 @@ function initializeSpeechRecognition() {
     };
 
     speechInput.recognition = recognition;
-    button.addEventListener("click", toggleSpeechRecognition);
+    SPEECH_INPUT_CONTROLS.forEach((control) => {
+      $(control.buttonId).addEventListener("click", () => toggleSpeechRecognition(control));
+    });
   } catch (error) {
-    button.disabled = true;
+    SPEECH_INPUT_CONTROLS.forEach((control) => {
+      $(control.buttonId).disabled = true;
+    });
     setSpeechStatus("Speech recognition unavailable in this browser.");
   }
 }
